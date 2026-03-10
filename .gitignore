@@ -1,0 +1,32 @@
+# OS
+desktop.ini
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp files
+*.tmp
+~$*
+
+# Environment / secrets
+.env
+.env.local
+*.key
+*.pem
+credentials.json
+
+# Build output
+*.exe
+
+# Project config (auto-generated)
+*.ini
+
+# Syncthing
+.stfolder/
+.stversions/
