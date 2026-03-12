@@ -1,17 +1,20 @@
 ; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║  CapsNumTray.ahk  —  Caps Lock + Num Lock tray indicators               ║
-; ║  v1.3.0  |  Requires: AutoHotkey v2 64-bit                               ║
+; ║  CapsNumTray.ahk  —  Caps/Num/Scroll Lock tray indicators               ║
+; ║  v1.4.0  |  Requires: AutoHotkey v2 64-bit                               ║
 ; ║                                                                          ║
-; ║  • Left-click  Caps icon  → toggle Caps Lock                            ║
-; ║  • Left-click  Num  icon  → toggle Num Lock                             ║
-; ║  • Right-click either     → menu (toggle / show-hide / startup / exit)  ║
+; ║  • Left-click  Caps icon    → toggle Caps Lock                          ║
+; ║  • Left-click  Num  icon    → toggle Num Lock                           ║
+; ║  • Left-click  Scroll icon  → toggle Scroll Lock                        ║
+; ║  • Right-click any          → menu (toggle / show-hide / startup / exit)║
 ; ║  Visibility prefs saved to CapsNumTray.ini (next to script)             ║
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
-;@Ahk2Exe-AddResource icons\CapsLockOn.ico,  210
-;@Ahk2Exe-AddResource icons\CapsLockOff.ico, 211
-;@Ahk2Exe-AddResource icons\NumLockOn.ico,   212
-;@Ahk2Exe-AddResource icons\NumLockOff.ico,  213
+;@Ahk2Exe-AddResource icons\CapsLockOn.ico,    210
+;@Ahk2Exe-AddResource icons\CapsLockOff.ico,   211
+;@Ahk2Exe-AddResource icons\NumLockOn.ico,     212
+;@Ahk2Exe-AddResource icons\NumLockOff.ico,    213
+;@Ahk2Exe-AddResource icons\ScrollLockOn.ico,  214
+;@Ahk2Exe-AddResource icons\ScrollLockOff.ico, 215
 
 #Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
@@ -19,11 +22,12 @@ Persistent
 #NoTrayIcon   ; suppress AHK's own icon — we manage ours manually
 
 ; ── VERSION ───────────────────────────────────────────────────────────────────
-global g_version := "1.3.1"
+global g_version := "1.4.0"
 
 ; ── ICON IDs ──────────────────────────────────────────────────────────────────
-global ID_CAPS := 10
-global ID_NUM  := 11
+global ID_CAPS   := 10
+global ID_NUM    := 11
+global ID_SCROLL := 12
 
 ; ── TRAY CALLBACK MESSAGE ─────────────────────────────────────────────────────
 global WM_TRAY := 0x8010
@@ -34,6 +38,7 @@ global g_ini := A_ScriptDir "\CapsNumTray.ini"
 ; ── LOAD VISIBILITY PREFS FROM INI ───────────────────────────────────────────
 global g_showCaps     := IniRead(g_ini, "Visibility", "ShowCaps",     "1") = "1"
 global g_showNum      := IniRead(g_ini, "Visibility", "ShowNum",      "1") = "1"
+global g_showScroll   := IniRead(g_ini, "Visibility", "ShowScroll",   "0") = "1"  ; opt-in
 global g_showOSD      := IniRead(g_ini, "General",    "ShowOSD",      "1") = "1"
 global g_beepOnToggle := IniRead(g_ini, "General",    "BeepOnToggle", "0") = "1"
 
@@ -41,9 +46,33 @@ global g_beepOnToggle := IniRead(g_ini, "General",    "BeepOnToggle", "0") = "1"
 global g_settingsGui := 0
 global g_helpGui     := 0
 
-; ── DPI-AWARE ICON SIZE ───────────────────────────────────────────────────────
-; 16px at 96 DPI, scales to 20px at 125%, 24px at 150%, etc.
-global g_iconSize := Round(16 * DllCall("GetDpiForSystem", "UInt") / 96)
+; ── DPI-AWARE ICON SIZE (per-monitor) ────────────────────────────────────────
+; Uses GetDpiForWindow on the script's hidden HWND for per-monitor accuracy.
+; Falls back to GetDpiForSystem if the per-monitor call fails (e.g., Win 8.1).
+global g_iconSize := Round(16 * GetEffectiveDpi() / 96)
+
+GetEffectiveDpi() {
+    ; Per-monitor DPI via the script's owner window
+    dpi := DllCall("GetDpiForWindow", "Ptr", A_ScriptHwnd, "UInt")
+    if (dpi > 0)
+        return dpi
+    ; Fallback: system-wide DPI
+    return DllCall("GetDpiForSystem", "UInt")
+}
+
+; ── THEME DETECTION ──────────────────────────────────────────────────────────
+; Read Windows light/dark theme preference from registry.
+; 1 = light theme (apps use light), 0 = dark theme.
+; Icon variants for light theme deferred — detection only for now.
+global g_lightTheme := DetectLightTheme()
+
+DetectLightTheme() {
+    try {
+        val := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme")
+        return val = 1
+    } catch
+        return false  ; assume dark if registry key missing
+}
 
 ; ── OWNERSHIP TRACKING ────────────────────────────────────────────────────────
 ; LoadImage (from file or resource) returns owned handles → must DestroyIcon
@@ -53,16 +82,20 @@ global g_ownedIcons := Map()
 ; ── LOAD ICO FILES ────────────────────────────────────────────────────────────
 ; FIX P1-A: integer ordinals (32516=IDI_INFORMATION, 32515=IDI_WARNING)
 ; String ordinals like "IDI_WARNING" always return NULL from LoadIcon
-global g_hCapOn  := LoadIco("CapsLockOn",  32516)   ; fallback: IDI_INFORMATION
-global g_hCapOff := LoadIco("CapsLockOff", 32515)   ; fallback: IDI_WARNING
-global g_hNumOn  := LoadIco("NumLockOn",   32516)
-global g_hNumOff := LoadIco("NumLockOff",  32515)
+global g_hCapOn     := LoadIco("CapsLockOn",    32516)   ; fallback: IDI_INFORMATION
+global g_hCapOff    := LoadIco("CapsLockOff",   32515)   ; fallback: IDI_WARNING
+global g_hNumOn     := LoadIco("NumLockOn",     32516)
+global g_hNumOff    := LoadIco("NumLockOff",    32515)
+global g_hScrollOn  := LoadIco("ScrollLockOn",  32516)
+global g_hScrollOff := LoadIco("ScrollLockOff", 32515)
 
 ; ── ADD TRAY ICONS ────────────────────────────────────────────────────────────
 if g_showCaps
     TrayAdd(ID_CAPS)
 if g_showNum
     TrayAdd(ID_NUM)
+if g_showScroll
+    TrayAdd(ID_SCROLL)
 
 SyncIcons()
 SetTimer(SyncIcons, 250)
@@ -78,12 +111,15 @@ OnExit(Cleanup)
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 SyncIcons() {
-    capOn := GetKeyState("CapsLock", "T")
-    numOn := GetKeyState("NumLock",  "T")
+    capOn    := GetKeyState("CapsLock",   "T")
+    numOn    := GetKeyState("NumLock",    "T")
+    scrollOn := GetKeyState("ScrollLock", "T")
     if g_showCaps
-        TrayModify(ID_CAPS, capOn ? g_hCapOn : g_hCapOff, capOn ? "Caps Lock: ON"  : "Caps Lock: OFF")
+        TrayModify(ID_CAPS,   capOn    ? g_hCapOn     : g_hCapOff,    capOn    ? "Caps Lock: ON"   : "Caps Lock: OFF")
     if g_showNum
-        TrayModify(ID_NUM,  numOn ? g_hNumOn : g_hNumOff, numOn ? "Num Lock: ON"   : "Num Lock: OFF")
+        TrayModify(ID_NUM,    numOn    ? g_hNumOn     : g_hNumOff,    numOn    ? "Num Lock: ON"    : "Num Lock: OFF")
+    if g_showScroll
+        TrayModify(ID_SCROLL, scrollOn ? g_hScrollOn  : g_hScrollOff, scrollOn ? "Scroll Lock: ON" : "Scroll Lock: OFF")
 }
 
 ToggleCapsLock() {
@@ -110,12 +146,24 @@ ToggleNumLock() {
     }
 }
 
+ToggleScrollLock() {
+    newState := !GetKeyState("ScrollLock", "T")
+    SetScrollLockState(newState ? "On" : "Off")
+    SyncIcons()
+    if g_beepOnToggle
+        SoundBeep(newState ? 1100 : 550, 80)
+    if g_showOSD {
+        ToolTip("Scroll Lock: " (newState ? "ON" : "OFF"))
+        SetTimer(() => ToolTip(), -2000)
+    }
+}
+
 ; Show or hide an icon, save the pref to ini
 SetIconVisible(id, visible) {
     ; Guard: refuse to hide the last visible icon
     if !visible {
-        otherVisible := (id = ID_CAPS) ? g_showNum : g_showCaps
-        if !otherVisible {
+        visibleCount := g_showCaps + g_showNum + g_showScroll
+        if (visibleCount <= 1) {
             ToolTip("At least one icon must remain visible")
             SetTimer(() => ToolTip(), -3000)
             return
@@ -124,21 +172,18 @@ SetIconVisible(id, visible) {
     if (id = ID_CAPS) {
         g_showCaps := visible
         IniWrite(visible ? "1" : "0", g_ini, "Visibility", "ShowCaps")
-        if visible {
-            TrayAdd(ID_CAPS)
-            SyncIcons()
-        } else {
-            TrayRemove(ID_CAPS)
-        }
-    } else {
+    } else if (id = ID_NUM) {
         g_showNum := visible
         IniWrite(visible ? "1" : "0", g_ini, "Visibility", "ShowNum")
-        if visible {
-            TrayAdd(ID_NUM)
-            SyncIcons()
-        } else {
-            TrayRemove(ID_NUM)
-        }
+    } else if (id = ID_SCROLL) {
+        g_showScroll := visible
+        IniWrite(visible ? "1" : "0", g_ini, "Visibility", "ShowScroll")
+    }
+    if visible {
+        TrayAdd(id)
+        SyncIcons()
+    } else {
+        TrayRemove(id)
     }
 }
 
@@ -160,8 +205,9 @@ OnTrayMsg(wParam, lParam, *) {
     WM_CONTEXTMENU := 0x007B
 
     if (event = WM_LBUTTONUP) {
-        if      (iconID = ID_CAPS)  ToggleCapsLock()
-        else if (iconID = ID_NUM)   ToggleNumLock()
+        if      (iconID = ID_CAPS)   ToggleCapsLock()
+        else if (iconID = ID_NUM)    ToggleNumLock()
+        else if (iconID = ID_SCROLL) ToggleScrollLock()
         return
     }
 
@@ -178,17 +224,37 @@ OnTrayMsg(wParam, lParam, *) {
         m.Add("Caps Lock is " (capOn ? "ON  — click to turn Off" : "OFF — click to turn On"), (*) => ToggleCapsLock())
         m.Add()
         if g_showNum
-            m.Add("Hide Num Lock icon",  (*) => SetIconVisible(ID_NUM, false))
+            m.Add("Hide Num Lock icon",    (*) => SetIconVisible(ID_NUM, false))
         else
-            m.Add("Show Num Lock icon",  (*) => SetIconVisible(ID_NUM, true))
+            m.Add("Show Num Lock icon",    (*) => SetIconVisible(ID_NUM, true))
+        if g_showScroll
+            m.Add("Hide Scroll Lock icon", (*) => SetIconVisible(ID_SCROLL, false))
+        else
+            m.Add("Show Scroll Lock icon", (*) => SetIconVisible(ID_SCROLL, true))
     } else if (iconID = ID_NUM) {
         numOn := GetKeyState("NumLock", "T")
         m.Add("Num Lock is " (numOn ? "ON  — click to turn Off" : "OFF — click to turn On"), (*) => ToggleNumLock())
         m.Add()
         if g_showCaps
-            m.Add("Hide Caps Lock icon", (*) => SetIconVisible(ID_CAPS, false))
+            m.Add("Hide Caps Lock icon",   (*) => SetIconVisible(ID_CAPS, false))
         else
-            m.Add("Show Caps Lock icon", (*) => SetIconVisible(ID_CAPS, true))
+            m.Add("Show Caps Lock icon",   (*) => SetIconVisible(ID_CAPS, true))
+        if g_showScroll
+            m.Add("Hide Scroll Lock icon", (*) => SetIconVisible(ID_SCROLL, false))
+        else
+            m.Add("Show Scroll Lock icon", (*) => SetIconVisible(ID_SCROLL, true))
+    } else if (iconID = ID_SCROLL) {
+        scrollOn := GetKeyState("ScrollLock", "T")
+        m.Add("Scroll Lock is " (scrollOn ? "ON  — click to turn Off" : "OFF — click to turn On"), (*) => ToggleScrollLock())
+        m.Add()
+        if g_showCaps
+            m.Add("Hide Caps Lock icon",   (*) => SetIconVisible(ID_CAPS, false))
+        else
+            m.Add("Show Caps Lock icon",   (*) => SetIconVisible(ID_CAPS, true))
+        if g_showNum
+            m.Add("Hide Num Lock icon",    (*) => SetIconVisible(ID_NUM, false))
+        else
+            m.Add("Show Num Lock icon",    (*) => SetIconVisible(ID_NUM, true))
     }
 
     m.Add()
@@ -200,8 +266,9 @@ OnTrayMsg(wParam, lParam, *) {
 
 ; FIX P1-B: re-add all icons after Explorer crash/restart
 OnTaskbarCreated(*) {
-    if g_showCaps  TrayAdd(ID_CAPS)
-    if g_showNum   TrayAdd(ID_NUM)
+    if g_showCaps   TrayAdd(ID_CAPS)
+    if g_showNum    TrayAdd(ID_NUM)
+    if g_showScroll TrayAdd(ID_SCROLL)
     SyncIcons()
 }
 
@@ -243,6 +310,7 @@ ShowSettingsGUI() {
     dlg.SetFont("s9 Normal")
     dlg.Add("CheckBox", "x28 y+10 vChkShowCaps" (g_showCaps ? " Checked" : ""), "Show Caps Lock icon")
     dlg.Add("CheckBox", "x28 y+6 vChkShowNum" (g_showNum ? " Checked" : ""), "Show Num Lock icon")
+    dlg.Add("CheckBox", "x28 y+6 vChkShowScroll" (g_showScroll ? " Checked" : ""), "Show Scroll Lock icon")
 
     ; ── Feedback ──
     dlg.SetFont("s9 Bold")
@@ -270,13 +338,14 @@ ShowSettingsGUI() {
 }
 
 ApplySettingsGUI(dlg, close := true) {
-    global g_showCaps, g_showNum, g_showOSD, g_beepOnToggle, g_settingsGui
+    global g_showCaps, g_showNum, g_showScroll, g_showOSD, g_beepOnToggle, g_settingsGui
     saved := dlg.Submit(close)
 
     ; ── Visibility (with last-icon guard) ──
-    newCaps := saved.ChkShowCaps
-    newNum  := saved.ChkShowNum
-    if !newCaps && !newNum {
+    newCaps   := saved.ChkShowCaps
+    newNum    := saved.ChkShowNum
+    newScroll := saved.ChkShowScroll
+    if !newCaps && !newNum && !newScroll {
         ToolTip("At least one icon must remain visible")
         SetTimer(() => ToolTip(), -3000)
         if close {
@@ -288,6 +357,8 @@ ApplySettingsGUI(dlg, close := true) {
         SetIconVisible(ID_CAPS, newCaps)
     if (newNum != g_showNum)
         SetIconVisible(ID_NUM, newNum)
+    if (newScroll != g_showScroll)
+        SetIconVisible(ID_SCROLL, newScroll)
 
     ; ── OSD & Beep ──
     g_showOSD := saved.ChkOSD
@@ -340,9 +411,9 @@ ShowHelpWindow() {
 
     helpText := "
     (
-CAPSNUMTRAY — Caps Lock + Num Lock Tray Indicators
+CAPSNUMTRAY — Caps/Num/Scroll Lock Tray Indicators
 
-CapsNumTray adds two independent system tray icons that show the current state of your Caps Lock and Num Lock keys. Left-click to toggle, right-click for options.
+CapsNumTray adds independent system tray icons that show the current state of your Caps Lock, Num Lock, and Scroll Lock keys. Left-click to toggle, right-click for options.
 
 Green/lit icon = key is ON
 Dim/grey icon = key is OFF
@@ -351,11 +422,12 @@ Dim/grey icon = key is OFF
 
 • Left-click the Caps Lock tray icon to toggle Caps Lock.
 • Left-click the Num Lock tray icon to toggle Num Lock.
-• Right-click either icon for a menu with toggle, visibility, settings, and exit.
+• Left-click the Scroll Lock tray icon to toggle Scroll Lock.
+• Right-click any icon for a menu with toggle, visibility, settings, and exit.
 
 ─── SETTINGS ────────────────────────────────────
 
-Show Caps Lock / Num Lock icon: Choose which icons appear in the tray. At least one must remain visible.
+Show Caps Lock / Num Lock / Scroll Lock icon: Choose which icons appear in the tray. Scroll Lock is hidden by default (opt-in via Settings). At least one must remain visible.
 
 Show OSD tooltip on toggle: When enabled, a small floating tooltip appears briefly (2 seconds) showing the new state after toggling.
 
@@ -476,7 +548,7 @@ LoadIco(name, fallbackOrdinal := 32512) {
     }
     ; Stage 2: embedded PE resource (compiled .exe only)
     if A_IsCompiled {
-        resIDs := Map("CapsLockOn", 210, "CapsLockOff", 211, "NumLockOn", 212, "NumLockOff", 213)
+        resIDs := Map("CapsLockOn", 210, "CapsLockOff", 211, "NumLockOn", 212, "NumLockOff", 213, "ScrollLockOn", 214, "ScrollLockOff", 215)
         if resIDs.Has(name) {
             hInst := DllCall("GetModuleHandle", "Ptr", 0, "Ptr")
             hIcon := DllCall("LoadImage", "Ptr", hInst,
@@ -493,10 +565,11 @@ LoadIco(name, fallbackOrdinal := 32512) {
 }
 
 Cleanup(*) {
-    if g_showCaps  TrayRemove(ID_CAPS)
-    if g_showNum   TrayRemove(ID_NUM)
+    if g_showCaps   TrayRemove(ID_CAPS)
+    if g_showNum    TrayRemove(ID_NUM)
+    if g_showScroll TrayRemove(ID_SCROLL)
     ; FIX P1-D: only DestroyIcon handles we own (not shared system icons)
-    for h in [g_hCapOn, g_hCapOff, g_hNumOn, g_hNumOff]
+    for h in [g_hCapOn, g_hCapOff, g_hNumOn, g_hNumOff, g_hScrollOn, g_hScrollOff]
         if h && g_ownedIcons.Has(h)
             DllCall("DestroyIcon", "Ptr", h)
 }
