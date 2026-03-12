@@ -2,6 +2,17 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [1.3.0] - 2026-03-12
+
+### Added
+- **Settings GUI** — full settings dialog accessible from right-click menu with checkboxes for all options (icon visibility, OSD, beep, startup). Follows MicMute/EQSwitch pattern with GitHub + Help buttons, OK/Apply/Cancel
+- **Help window** — resizable, scrollable help dialog with full usage guide, settings explanations, and technical notes
+
+### Changed
+- **Icons moved to `icons/` folder** — cleaner project structure. `@Ahk2Exe-AddResource` and `LoadIco` paths updated
+- **Context menu simplified** — OSD, beep, and startup toggles removed from right-click menu in favor of the Settings GUI. Menu now has: toggle, show/hide other icon, Settings..., Exit
+- Inline `ToggleOSD()` and `ToggleBeep()` functions retained for internal use by Settings GUI
+
 ## [1.2.0] - 2026-03-12
 
 ### Fixed
