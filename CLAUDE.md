@@ -48,3 +48,9 @@ Single-file script with these sections:
 
 ## Known Issues
 - See `AUDIT_TASKS.md` for current findings and `CHANGELOG.md` for resolved items
+
+## Status
+
+**v1.4.0 — Final release (shipped 2026-03-12)**
+
+All audit items resolved. Tracking files cleared. See FINAL_REPORT.md for summary.

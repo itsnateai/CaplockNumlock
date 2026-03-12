@@ -12,7 +12,15 @@ Thumbs.db
 
 # Temp files
 *.tmp
+*.bak
+*.log
 ~$*
+
+# Task Management
+AUDIT_TASKS.md
+TODO_LIST.md
+SCHEDULED_TASKS.md
+ASSUMPTIONS.md
 
 # Environment / secrets
 .env
