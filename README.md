@@ -23,10 +23,12 @@ Lightweight tray indicators that let you see and control Caps Lock and Num Lock 
 - **Tray icons** show ON/OFF state for both Caps Lock and Num Lock
 - **Left-click** any icon to toggle that key
 - **Right-click** for a context menu with toggle, show/hide, settings, and exit options
+- **Settings GUI** — full settings dialog with checkboxes for all options, plus GitHub and Help buttons
 - **Visibility persistence** — hide either icon and the preference sticks across restarts
 - **OSD tooltip** — brief floating notification when toggling a key (configurable)
 - **Optional beep** — audible feedback on toggle (off by default)
-- **Run at startup** — toggle via right-click menu, managed via registry
+- **Run at startup** — toggle via Settings dialog, managed via registry
+- **Help window** — resizable help dialog with full usage guide
 - **Graceful fallbacks** — missing icon files fall back to embedded resources (compiled) or Windows built-in icons
 
 ## Configuration
@@ -50,7 +52,7 @@ BeepOnToggle=0
 | `ShowOSD` | `1` | Show floating tooltip when toggling a key |
 | `BeepOnToggle` | `0` | Play a beep sound when toggling a key |
 
-All settings except visibility can also be toggled from the right-click context menu.
+All settings can be configured via the Settings dialog (right-click any icon → Settings...).
 
 ## How It Works
 
@@ -61,7 +63,7 @@ Uses the Win32 `Shell_NotifyIconW` API directly to create independent tray icons
 To compile to a standalone `.exe` (no AutoHotkey installation needed):
 
 ```bash
-MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon CapsLockOn.ico /compress 0 /silent
+MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
 ```
 
 > **Note:** Use `/compress 0` — default compression triggers Windows Defender false positives.
@@ -71,10 +73,10 @@ MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out Ca
 | File | Purpose |
 |------|---------|
 | `CapsNumTray.ahk` | Main script |
-| `CapsLockOn.ico` | Tray icon — Caps Lock ON |
-| `CapsLockOff.ico` | Tray icon — Caps Lock OFF |
-| `NumLockOn.ico` | Tray icon — Num Lock ON |
-| `NumLockOff.ico` | Tray icon — Num Lock OFF |
+| `icons/CapsLockOn.ico` | Tray icon — Caps Lock ON |
+| `icons/CapsLockOff.ico` | Tray icon — Caps Lock OFF |
+| `icons/NumLockOn.ico` | Tray icon — Num Lock ON |
+| `icons/NumLockOff.ico` | Tray icon — Num Lock OFF |
 | `CapsNumTray.ini` | User config (auto-created, gitignored) |
 
 ## License

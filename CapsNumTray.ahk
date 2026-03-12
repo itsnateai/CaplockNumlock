@@ -1,6 +1,6 @@
 ; ╔══════════════════════════════════════════════════════════════════════════╗
 ; ║  CapsNumTray.ahk  —  Caps Lock + Num Lock tray indicators               ║
-; ║  v1.2.0  |  Requires: AutoHotkey v2 64-bit                               ║
+; ║  v1.3.0  |  Requires: AutoHotkey v2 64-bit                               ║
 ; ║                                                                          ║
 ; ║  • Left-click  Caps icon  → toggle Caps Lock                            ║
 ; ║  • Left-click  Num  icon  → toggle Num Lock                             ║
@@ -8,10 +8,10 @@
 ; ║  Visibility prefs saved to CapsNumTray.ini (next to script)             ║
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
-;@Ahk2Exe-AddResource CapsLockOn.ico,  210
-;@Ahk2Exe-AddResource CapsLockOff.ico, 211
-;@Ahk2Exe-AddResource NumLockOn.ico,   212
-;@Ahk2Exe-AddResource NumLockOff.ico,  213
+;@Ahk2Exe-AddResource icons\CapsLockOn.ico,  210
+;@Ahk2Exe-AddResource icons\CapsLockOff.ico, 211
+;@Ahk2Exe-AddResource icons\NumLockOn.ico,   212
+;@Ahk2Exe-AddResource icons\NumLockOff.ico,  213
 
 #Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
@@ -19,7 +19,7 @@ Persistent
 #NoTrayIcon   ; suppress AHK's own icon — we manage ours manually
 
 ; ── VERSION ───────────────────────────────────────────────────────────────────
-global g_version := "1.2.0"
+global g_version := "1.3.0"
 
 ; ── ICON IDs ──────────────────────────────────────────────────────────────────
 global ID_CAPS := 10
@@ -36,6 +36,10 @@ global g_showCaps     := IniRead(g_ini, "Visibility", "ShowCaps",     "1") = "1"
 global g_showNum      := IniRead(g_ini, "Visibility", "ShowNum",      "1") = "1"
 global g_showOSD      := IniRead(g_ini, "General",    "ShowOSD",      "1") = "1"
 global g_beepOnToggle := IniRead(g_ini, "General",    "BeepOnToggle", "0") = "1"
+
+; ── GUI STATE ────────────────────────────────────────────────────────────────
+global g_settingsGui := 0
+global g_helpGui     := 0
 
 ; ── DPI-AWARE ICON SIZE ───────────────────────────────────────────────────────
 ; 16px at 96 DPI, scales to 20px at 125%, 24px at 150%, etc.
@@ -188,16 +192,7 @@ OnTrayMsg(wParam, lParam, *) {
     }
 
     m.Add()
-    m.Add("Show OSD on toggle", (*) => ToggleOSD())
-    if g_showOSD
-        m.Check("Show OSD on toggle")
-    m.Add("Beep on toggle", (*) => ToggleBeep())
-    if g_beepOnToggle
-        m.Check("Beep on toggle")
-    m.Add()
-    m.Add("Run at startup", (*) => ToggleStartup())
-    if IsStartupEnabled()
-        m.Check("Run at startup")
+    m.Add("Settings...", (*) => ShowSettingsGUI())
     m.Add()
     m.Add("Exit CapsNumTray", (*) => ExitApp())
     m.Show(clickX, clickY)
@@ -222,6 +217,168 @@ ToggleOSD() {
 ToggleBeep() {
     global g_beepOnToggle := !g_beepOnToggle
     IniWrite(g_beepOnToggle ? "1" : "0", g_ini, "General", "BeepOnToggle")
+}
+
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║  Settings GUI                                                            ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+ShowSettingsGUI() {
+    global g_settingsGui
+    if g_settingsGui {
+        try {
+            g_settingsGui.Show()
+            return
+        }
+        g_settingsGui := 0
+    }
+
+    dlg := Gui("+AlwaysOnTop", "CapsNumTray v" g_version " — Settings")
+    dlg.BackColor := "FFFFFF"
+    dlg.SetFont("s9", "Segoe UI")
+
+    ; ── Tray Icons ──
+    dlg.SetFont("s9 Bold")
+    dlg.Add("Text", "x16 y16", "Tray Icons")
+    dlg.SetFont("s9 Normal")
+    dlg.Add("CheckBox", "x28 y+10 vChkShowCaps" (g_showCaps ? " Checked" : ""), "Show Caps Lock icon")
+    dlg.Add("CheckBox", "x28 y+6 vChkShowNum" (g_showNum ? " Checked" : ""), "Show Num Lock icon")
+
+    ; ── Feedback ──
+    dlg.SetFont("s9 Bold")
+    dlg.Add("Text", "x16 y+16", "Feedback")
+    dlg.SetFont("s9 Normal")
+    dlg.Add("CheckBox", "x28 y+10 vChkOSD" (g_showOSD ? " Checked" : ""), "Show OSD tooltip on toggle")
+    dlg.Add("CheckBox", "x28 y+6 vChkBeep" (g_beepOnToggle ? " Checked" : ""), "Beep on toggle")
+
+    ; ── Startup ──
+    dlg.SetFont("s9 Bold")
+    dlg.Add("Text", "x16 y+16", "Startup")
+    dlg.SetFont("s9 Normal")
+    dlg.Add("CheckBox", "x28 y+10 vChkStartup" (IsStartupEnabled() ? " Checked" : ""), "Run at Windows startup")
+
+    ; ── Buttons ──
+    dlg.Add("Button", "x16 y+22 w80", "GitHub").OnEvent("Click", (*) => Run("https://github.com/itsnateai/CaplockNumlock"))
+    dlg.Add("Button", "x+6 yp w55", "Help").OnEvent("Click", (*) => ShowHelpWindow())
+    dlg.Add("Button", "x200 yp w70 Default", "OK").OnEvent("Click", (*) => ApplySettingsGUI(dlg, true))
+    dlg.Add("Button", "x+8 w70", "Apply").OnEvent("Click", (*) => ApplySettingsGUI(dlg, false))
+    dlg.Add("Button", "x+8 w70", "Cancel").OnEvent("Click", (*) => CloseSettingsGUI(dlg))
+
+    dlg.OnEvent("Close", (*) => CloseSettingsGUI(dlg))
+    g_settingsGui := dlg
+    dlg.Show("AutoSize")
+}
+
+ApplySettingsGUI(dlg, close := true) {
+    global
+    saved := dlg.Submit(close)
+
+    ; ── Visibility (with last-icon guard) ──
+    newCaps := saved.ChkShowCaps
+    newNum  := saved.ChkShowNum
+    if !newCaps && !newNum {
+        ToolTip("At least one icon must remain visible")
+        SetTimer(() => ToolTip(), -3000)
+        if close {
+            dlg.Show()  ; re-show since Submit() hid it
+        }
+        return
+    }
+    if (newCaps != g_showCaps)
+        SetIconVisible(ID_CAPS, newCaps)
+    if (newNum != g_showNum)
+        SetIconVisible(ID_NUM, newNum)
+
+    ; ── OSD & Beep ──
+    g_showOSD := saved.ChkOSD
+    IniWrite(g_showOSD ? "1" : "0", g_ini, "General", "ShowOSD")
+    g_beepOnToggle := saved.ChkBeep
+    IniWrite(g_beepOnToggle ? "1" : "0", g_ini, "General", "BeepOnToggle")
+
+    ; ── Startup ──
+    wantStartup := saved.ChkStartup
+    hasStartup  := IsStartupEnabled()
+    if (wantStartup != hasStartup)
+        ToggleStartup()
+
+    if close {
+        dlg.Destroy()
+        g_settingsGui := 0
+    }
+    ToolTip("Settings saved.")
+    SetTimer(() => ToolTip(), -3000)
+}
+
+CloseSettingsGUI(dlg) {
+    global g_settingsGui
+    try dlg.Destroy()
+    g_settingsGui := 0
+}
+
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║  Help window                                                             ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+ShowHelpWindow() {
+    global g_helpGui
+    if g_helpGui {
+        try {
+            g_helpGui.Show()
+            return
+        }
+        g_helpGui := 0
+    }
+    hlp := Gui("+AlwaysOnTop +Resize +MinSize400x300", "CapsNumTray v" g_version " — Help")
+    hlp.BackColor := "FFFFFF"
+    hlp.SetFont("s9", "Segoe UI")
+
+    helpText := "
+    (
+CAPSNUMTRAY — Caps Lock + Num Lock Tray Indicators
+
+CapsNumTray adds two independent system tray icons that show the current state of your Caps Lock and Num Lock keys. Left-click to toggle, right-click for options.
+
+Green/lit icon = key is ON
+Dim/grey icon = key is OFF
+
+─── BASIC USAGE ─────────────────────────────────
+
+• Left-click the Caps Lock tray icon to toggle Caps Lock.
+• Left-click the Num Lock tray icon to toggle Num Lock.
+• Right-click either icon for a menu with toggle, visibility, settings, and exit.
+
+─── SETTINGS ────────────────────────────────────
+
+Show Caps Lock / Num Lock icon: Choose which icons appear in the tray. At least one must remain visible.
+
+Show OSD tooltip on toggle: When enabled, a small floating tooltip appears briefly (2 seconds) showing the new state after toggling.
+
+Beep on toggle: Plays a short tone when you toggle a key. Higher pitch = ON, lower pitch = OFF.
+
+Run at Windows startup: Adds CapsNumTray to your Windows startup so it launches automatically at login.
+
+All settings are saved to CapsNumTray.ini next to the script and persist across restarts.
+
+─── TRAY ICONS ──────────────────────────────────
+
+Icons are loaded from the icons/ folder. If missing, compiled .exe versions use embedded resources. As a final fallback, Windows built-in system icons are used.
+
+─── TECHNICAL NOTES ─────────────────────────────
+
+CapsNumTray uses the Win32 Shell_NotifyIconW API directly (not AHK's built-in tray) to support multiple independent tray icons. A 250ms polling timer keeps icons in sync even when keys are changed externally. Icons are automatically re-added if Explorer restarts.
+    )"
+
+    hlp.Add("Edit", "x10 y10 w440 h400 ReadOnly -E0x200 Multi +VScroll", helpText)
+    hlp.OnEvent("Close", (*) => (g_helpGui.Destroy(), g_helpGui := 0))
+    hlp.OnEvent("Size", HelpResize)
+    g_helpGui := hlp
+    hlp.Show("w460 h420")
+}
+
+HelpResize(hlp, minMax, w, h) {
+    if minMax = -1
+        return
+    try hlp["Edit1"].Move(10, 10, w - 20, h - 20)
 }
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
@@ -303,8 +460,8 @@ TrayRemove(id) {
 ; Stage 2: embedded PE resource when compiled (owned handle)
 ; Stage 3: shared Windows system icon (NOT owned — do not DestroyIcon)
 LoadIco(name, fallbackOrdinal := 32512) {
-    ; Stage 1: file on disk
-    path  := A_ScriptDir "\" name ".ico"
+    ; Stage 1: file on disk (icons/ subfolder)
+    path  := A_ScriptDir "\icons\" name ".ico"
     hIcon := DllCall("LoadImage", "Ptr", 0, "WStr", path,
         "UInt", 1, "Int", g_iconSize, "Int", g_iconSize, "UInt", 0x10, "Ptr")
     if hIcon {

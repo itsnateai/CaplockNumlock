@@ -15,17 +15,16 @@ CapsNumTray is a lightweight AHK v2 utility that adds system tray icons showing 
 "C:/Users/swift/.xn/_Projects/_tools/AutoHotkey64.exe" CapsNumTray.ahk
 
 # Compile to standalone .exe
-MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon CapsLockOn.ico /compress 0 /silent
+MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `CapsNumTray.ahk` | Main script (~310 lines) |
-| `CapsLockOn.ico` / `CapsLockOff.ico` | Caps Lock tray icons |
-| `NumLockOn.ico` / `NumLockOff.ico` | Num Lock tray icons |
-| `CapsNumTray.ini` | User visibility prefs (gitignored, auto-created) |
+| `CapsNumTray.ahk` | Main script (~480 lines) |
+| `icons/*.ico` | Tray icons (CapsLockOn/Off, NumLockOn/Off) |
+| `CapsNumTray.ini` | User settings (gitignored, auto-created) |
 
 ## Architecture
 Single-file script with these sections:
@@ -33,11 +32,13 @@ Single-file script with these sections:
 2. **Core functions** — `SyncIcons()` polls key state every 250ms, `Toggle*Lock()` toggles keys
 3. **Visibility management** — `SetIconVisible()` shows/hides icons and persists to INI (guards against hiding both)
 4. **Tray message handler** — `OnTrayMsg()` handles left-click (toggle) and right-click (context menu)
-5. **Settings toggles** — `ToggleOSD()`, `ToggleBeep()` with INI persistence
-6. **Startup management** — `IsStartupEnabled()`, `ToggleStartup()` via registry Run key
-7. **Shell_NotifyIconW helpers** — `BuildNID()`, `TrayAdd()`, `TrayModify()`, `TrayRemove()` wrap the Win32 API
-8. **Icon loading** — `LoadIco()` loads .ico files with 3-stage fallback (disk → PE resource → system)
-9. **Cleanup** — `Cleanup()` removes tray icons and destroys owned icon handles on exit
+5. **Settings GUI** — `ShowSettingsGUI()`, `ApplySettingsGUI()`, `CloseSettingsGUI()` with full dialog
+6. **Help window** — `ShowHelpWindow()` with resizable scrollable text
+7. **Settings toggles** — `ToggleOSD()`, `ToggleBeep()` with INI persistence
+8. **Startup management** — `IsStartupEnabled()`, `ToggleStartup()` via registry Run key
+9. **Shell_NotifyIconW helpers** — `BuildNID()`, `TrayAdd()`, `TrayModify()`, `TrayRemove()` wrap the Win32 API
+10. **Icon loading** — `LoadIco()` loads .ico files with 3-stage fallback (disk → PE resource → system)
+11. **Cleanup** — `Cleanup()` removes tray icons and destroys owned icon handles on exit
 
 ## Conventions
 - Uses raw Win32 `Shell_NotifyIconW` instead of AHK's built-in tray (allows multiple independent tray icons)

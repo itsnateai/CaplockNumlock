@@ -31,4 +31,4 @@ _(none found)_
 - [ ] **P4-1: Scroll Lock support** — Third tray icon for Scroll Lock, same pattern.
 - [ ] **P4-2: Per-monitor DPI** — `GetDpiForSystem()` returns system DPI, not per-monitor. On mixed-DPI setups, tray icon could be wrong size.
 - [ ] **P4-3: Dark/light theme detection** — Swap to high-contrast icon variants when taskbar uses light theme.
-- [ ] **P4-4: Settings GUI** — Instead of INI-only settings, add a simple Settings dialog (follows other AHK app patterns in workspace).
+- [x] **P4-4: Settings GUI** — Added full Settings dialog with GitHub + Help buttons, OK/Apply/Cancel. _(v1.3.0)_
