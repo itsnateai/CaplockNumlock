@@ -22,9 +22,12 @@ Lightweight tray indicators that let you see and control Caps Lock and Num Lock 
 
 - **Tray icons** show ON/OFF state for both Caps Lock and Num Lock
 - **Left-click** any icon to toggle that key
-- **Right-click** for a context menu with toggle, show/hide, and exit options
+- **Right-click** for a context menu with toggle, show/hide, settings, and exit options
 - **Visibility persistence** — hide either icon and the preference sticks across restarts
-- **Graceful fallbacks** — missing icon files fall back to Windows built-in icons
+- **OSD tooltip** — brief floating notification when toggling a key (configurable)
+- **Optional beep** — audible feedback on toggle (off by default)
+- **Run at startup** — toggle via right-click menu, managed via registry
+- **Graceful fallbacks** — missing icon files fall back to embedded resources (compiled) or Windows built-in icons
 
 ## Configuration
 
@@ -34,12 +37,20 @@ Settings are stored in `CapsNumTray.ini` (auto-created next to the script). Visi
 [Visibility]
 ShowCaps=1
 ShowNum=1
+
+[General]
+ShowOSD=1
+BeepOnToggle=0
 ```
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `ShowCaps` | `1` | Show the Caps Lock tray icon |
 | `ShowNum` | `1` | Show the Num Lock tray icon |
+| `ShowOSD` | `1` | Show floating tooltip when toggling a key |
+| `BeepOnToggle` | `0` | Play a beep sound when toggling a key |
+
+All settings except visibility can also be toggled from the right-click context menu.
 
 ## How It Works
 

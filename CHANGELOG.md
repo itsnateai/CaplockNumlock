@@ -2,6 +2,24 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [1.2.0] - 2026-03-12
+
+### Fixed
+- **P2-1: SyncIcons() was commented out** — `;` inside braces on `SetIconVisible` lines 114/118 was treated as AHK comment delimiter, not statement separator. Icon re-show caused up to 250ms blank flash. Split onto separate lines.
+- **P1-1: Startup registry path for .ahk** — `ToggleStartup()` now writes `"AhkPath" "ScriptPath"` when running as .ahk script, bare path when compiled. Previously the bare .ahk path would fail at login if AHK wasn't the default handler.
+- **P1-2: Both icons could be hidden** — Added guard in `SetIconVisible` that refuses to hide the last visible icon. Shows ToolTip warning instead.
+- **P1-3: No 64-bit guard** — Added `#Requires AutoHotkey v2.0 64-bit` since `NOTIFYICONDATA` struct offsets are 64-bit only.
+- **P3-1: Stale startup check** — `IsStartupEnabled()` now verifies the registry value matches the current script path, not just that it's non-empty.
+
+### Added
+- **OSD toggle in menu** — Right-click menu now has "Show OSD on toggle" checkable item, persisted to INI `[General] ShowOSD`
+- **Beep toggle in menu** — Right-click menu now has "Beep on toggle" checkable item, persisted to INI `[General] BeepOnToggle`
+
+### Documentation
+- Updated README with all INI settings (ShowOSD, BeepOnToggle), startup feature, OSD, and beep docs
+- Updated CLAUDE.md architecture section, line count, and known issues pointer
+- Populated AUDIT_TASKS.md with full audit findings
+
 ## [1.1.0] - 2026-03-10
 
 ### Fixed
