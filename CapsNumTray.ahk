@@ -1,6 +1,6 @@
 ; ╔══════════════════════════════════════════════════════════════════════════╗
 ; ║  CapsNumTray.ahk  —  Caps Lock + Num Lock tray indicators               ║
-; ║  v1.3.0  |  Requires: AutoHotkey v2 64-bit                               ║
+; ║  v1.3.1  |  Requires: AutoHotkey v2 64-bit                               ║
 ; ║                                                                          ║
 ; ║  • Left-click  Caps icon  → toggle Caps Lock                            ║
 ; ║  • Left-click  Num  icon  → toggle Num Lock                             ║
