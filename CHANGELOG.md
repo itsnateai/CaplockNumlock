@@ -2,6 +2,12 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [1.3.1] - 2026-03-12
+
+### Fixed
+- **Help close handler crash risk** — `hlp.OnEvent("Close")` was an inline `g_helpGui.Destroy()` with no try wrapper. If the GUI was already destroyed, it would throw an unhandled error. Extracted `CloseHelpWindow()` function with `try`, matching the `CloseSettingsGUI` pattern.
+- **Bare `global` in ApplySettingsGUI** — `global` with no names made every variable in the function global. A typo (e.g. `g_showODS`) would silently create a new global instead of erroring. Replaced with explicit `global g_showCaps, g_showNum, g_showOSD, g_beepOnToggle, g_settingsGui`.
+
 ## [1.3.0] - 2026-03-12
 
 ### Added
