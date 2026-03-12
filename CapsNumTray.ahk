@@ -19,7 +19,7 @@ Persistent
 #NoTrayIcon   ; suppress AHK's own icon — we manage ours manually
 
 ; ── VERSION ───────────────────────────────────────────────────────────────────
-global g_version := "1.3.0"
+global g_version := "1.3.1"
 
 ; ── ICON IDs ──────────────────────────────────────────────────────────────────
 global ID_CAPS := 10
@@ -270,7 +270,7 @@ ShowSettingsGUI() {
 }
 
 ApplySettingsGUI(dlg, close := true) {
-    global
+    global g_showCaps, g_showNum, g_showOSD, g_beepOnToggle, g_settingsGui
     saved := dlg.Submit(close)
 
     ; ── Visibility (with last-icon guard) ──
@@ -313,6 +313,12 @@ CloseSettingsGUI(dlg) {
     global g_settingsGui
     try dlg.Destroy()
     g_settingsGui := 0
+}
+
+CloseHelpWindow() {
+    global g_helpGui
+    try g_helpGui.Destroy()
+    g_helpGui := 0
 }
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
@@ -369,7 +375,7 @@ CapsNumTray uses the Win32 Shell_NotifyIconW API directly (not AHK's built-in tr
     )"
 
     hlp.Add("Edit", "x10 y10 w440 h400 ReadOnly -E0x200 Multi +VScroll", helpText)
-    hlp.OnEvent("Close", (*) => (g_helpGui.Destroy(), g_helpGui := 0))
+    hlp.OnEvent("Close", (*) => CloseHelpWindow())
     hlp.OnEvent("Size", HelpResize)
     g_helpGui := hlp
     hlp.Show("w460 h420")
