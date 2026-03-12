@@ -1,7 +1,7 @@
 # CLAUDE.md — CaplockNumlock
 
 ## Overview
-CapsNumTray is a lightweight AHK v2 utility that adds system tray icons showing the current state of Caps Lock and Num Lock. Left-click toggles the key, right-click provides a menu to toggle, show/hide icons, or exit. Visibility preferences persist via INI file.
+CapsNumTray is a lightweight AHK v2 utility that adds system tray icons showing the current state of Caps Lock, Num Lock, and Scroll Lock. Left-click toggles the key, right-click provides a menu to toggle, show/hide icons, or exit. Visibility preferences persist via INI file. Scroll Lock icon is opt-in (disabled by default).
 
 ## Tech Stack
 - **Language:** AutoHotkey v2
@@ -22,8 +22,8 @@ MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out Ca
 
 | File | Purpose |
 |------|---------|
-| `CapsNumTray.ahk` | Main script (~480 lines) |
-| `icons/*.ico` | Tray icons (CapsLockOn/Off, NumLockOn/Off) |
+| `CapsNumTray.ahk` | Main script (~575 lines) |
+| `icons/*.ico` | Tray icons (CapsLockOn/Off, NumLockOn/Off, ScrollLockOn/Off) |
 | `CapsNumTray.ini` | User settings (gitignored, auto-created) |
 
 ## Architecture
@@ -42,7 +42,7 @@ Single-file script with these sections:
 
 ## Conventions
 - Uses raw Win32 `Shell_NotifyIconW` instead of AHK's built-in tray (allows multiple independent tray icons)
-- Icon IDs: Caps Lock = 10, Num Lock = 11
+- Icon IDs: Caps Lock = 10, Num Lock = 11, Scroll Lock = 12
 - Custom tray callback message: `0x8010`
 - Visibility prefs stored in `[Visibility]` section of INI
 
