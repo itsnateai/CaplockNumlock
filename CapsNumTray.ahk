@@ -1,6 +1,6 @@
 ; ╔══════════════════════════════════════════════════════════════════════════╗
 ; ║  CapsNumTray.ahk  —  Caps Lock + Num Lock tray indicators               ║
-; ║  v1.1.0  |  Requires: AutoHotkey v2                                     ║
+; ║  v1.2.0  |  Requires: AutoHotkey v2 64-bit                               ║
 ; ║                                                                          ║
 ; ║  • Left-click  Caps icon  → toggle Caps Lock                            ║
 ; ║  • Left-click  Num  icon  → toggle Num Lock                             ║
@@ -13,13 +13,13 @@
 ;@Ahk2Exe-AddResource NumLockOn.ico,   212
 ;@Ahk2Exe-AddResource NumLockOff.ico,  213
 
-#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
 Persistent
 #NoTrayIcon   ; suppress AHK's own icon — we manage ours manually
 
 ; ── VERSION ───────────────────────────────────────────────────────────────────
-global g_version := "1.1.0"
+global g_version := "1.2.0"
 
 ; ── ICON IDs ──────────────────────────────────────────────────────────────────
 global ID_CAPS := 10
@@ -108,14 +108,33 @@ ToggleNumLock() {
 
 ; Show or hide an icon, save the pref to ini
 SetIconVisible(id, visible) {
+    ; Guard: refuse to hide the last visible icon
+    if !visible {
+        otherVisible := (id = ID_CAPS) ? g_showNum : g_showCaps
+        if !otherVisible {
+            ToolTip("At least one icon must remain visible")
+            SetTimer(() => ToolTip(), -3000)
+            return
+        }
+    }
     if (id = ID_CAPS) {
         g_showCaps := visible
         IniWrite(visible ? "1" : "0", g_ini, "Visibility", "ShowCaps")
-        if visible { TrayAdd(ID_CAPS) ; SyncIcons() } else { TrayRemove(ID_CAPS) }
+        if visible {
+            TrayAdd(ID_CAPS)
+            SyncIcons()
+        } else {
+            TrayRemove(ID_CAPS)
+        }
     } else {
         g_showNum := visible
         IniWrite(visible ? "1" : "0", g_ini, "Visibility", "ShowNum")
-        if visible { TrayAdd(ID_NUM) ; SyncIcons() } else { TrayRemove(ID_NUM) }
+        if visible {
+            TrayAdd(ID_NUM)
+            SyncIcons()
+        } else {
+            TrayRemove(ID_NUM)
+        }
     }
 }
 
@@ -169,6 +188,13 @@ OnTrayMsg(wParam, lParam, *) {
     }
 
     m.Add()
+    m.Add("Show OSD on toggle", (*) => ToggleOSD())
+    if g_showOSD
+        m.Check("Show OSD on toggle")
+    m.Add("Beep on toggle", (*) => ToggleBeep())
+    if g_beepOnToggle
+        m.Check("Beep on toggle")
+    m.Add()
     m.Add("Run at startup", (*) => ToggleStartup())
     if IsStartupEnabled()
         m.Check("Run at startup")
@@ -185,19 +211,43 @@ OnTaskbarCreated(*) {
 }
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║  Settings toggles                                                        ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+ToggleOSD() {
+    global g_showOSD := !g_showOSD
+    IniWrite(g_showOSD ? "1" : "0", g_ini, "General", "ShowOSD")
+}
+
+ToggleBeep() {
+    global g_beepOnToggle := !g_beepOnToggle
+    IniWrite(g_beepOnToggle ? "1" : "0", g_ini, "General", "BeepOnToggle")
+}
+
+; ╔══════════════════════════════════════════════════════════════════════════╗
 ; ║  Startup management                                                      ║
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 IsStartupEnabled() {
-    try   return RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray") != ""
-    catch return false
+    try {
+        val := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray")
+        ; Verify the registered path matches the current script location
+        expected := A_IsCompiled ? A_ScriptFullPath
+                                 : '"' A_AhkPath '" "' A_ScriptFullPath '"'
+        return val = expected
+    } catch
+        return false
 }
 
 ToggleStartup() {
-    if IsStartupEnabled()
+    if IsStartupEnabled() {
         RegDelete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray"
-    else
-        RegWrite A_ScriptFullPath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray"
+    } else {
+        ; Compiled .exe can launch directly; .ahk needs the AHK interpreter path
+        target := A_IsCompiled ? A_ScriptFullPath
+                               : '"' A_AhkPath '" "' A_ScriptFullPath '"'
+        RegWrite target, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray"
+    }
 }
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
