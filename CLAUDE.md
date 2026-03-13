@@ -23,7 +23,7 @@ MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out Ca
 | File | Purpose |
 |------|---------|
 | `CapsNumTray.ahk` | Main script (~575 lines) |
-| `icons/*.ico` | Tray icons (CapsLockOn/Off, NumLockOn/Off, ScrollLockOn/Off) |
+| `icons/*.ico` | Tray icons (CapsLockOn/Off, NumLockOn/Off, ScrollLockOn/Off, plus _Light OFF variants) |
 | `CapsNumTray.ini` | User settings (gitignored, auto-created) |
 
 ## Architecture
@@ -51,6 +51,6 @@ Single-file script with these sections:
 
 ## Status
 
-**v1.4.0 — Final release (shipped 2026-03-12)**
+**v1.4.1 — Light-theme icon support (2026-03-13)**
 
-All audit items resolved. Tracking files cleared. See FINAL_REPORT.md for summary.
+Light-theme OFF icon variants added. All deferred tasks resolved. See FINAL_REPORT.md for v1.4.0 summary.
