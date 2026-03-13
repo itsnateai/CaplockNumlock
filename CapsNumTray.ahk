@@ -490,7 +490,9 @@ ToggleStartup() {
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 BuildNID(id, hIcon := 0, tip := "") {
-    nid := Buffer(976, 0)
+    static nid := Buffer(976, 0)
+    ; Zero-fill each call to prevent stale data from previous invocation
+    DllCall("ntdll\RtlZeroMemory", "Ptr", nid, "UPtr", 976)
     NumPut("UInt", 976,          nid,  0)
     NumPut("Ptr",  A_ScriptHwnd, nid,  8)
     NumPut("UInt", id,           nid, 16)
@@ -506,7 +508,8 @@ BuildNID(id, hIcon := 0, tip := "") {
 TrayAdd(id) {
     ; FIX P2-A: NIF_MESSAGE only (0x1) on NIM_ADD — avoids blank icon flash
     ; icon/tip set immediately after via SyncIcons → TrayModify
-    nid := Buffer(976, 0)
+    static nid := Buffer(976, 0)
+    DllCall("ntdll\RtlZeroMemory", "Ptr", nid, "UPtr", 976)
     NumPut("UInt", 976,          nid,  0)
     NumPut("Ptr",  A_ScriptHwnd, nid,  8)
     NumPut("UInt", id,           nid, 16)
@@ -526,7 +529,8 @@ TrayModify(id, hIcon, tip) {
 }
 
 TrayRemove(id) {
-    nid := Buffer(976, 0)
+    static nid := Buffer(976, 0)
+    DllCall("ntdll\RtlZeroMemory", "Ptr", nid, "UPtr", 976)
     NumPut("UInt", 976,          nid,  0)
     NumPut("Ptr",  A_ScriptHwnd, nid,  8)
     NumPut("UInt", id,           nid, 16)
