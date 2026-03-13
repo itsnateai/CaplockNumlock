@@ -1,6 +1,6 @@
 ; ╔══════════════════════════════════════════════════════════════════════════╗
 ; ║  CapsNumTray.ahk  —  Caps/Num/Scroll Lock tray indicators               ║
-; ║  v1.4.0  |  Requires: AutoHotkey v2 64-bit                               ║
+; ║  v1.4.1  |  Requires: AutoHotkey v2 64-bit                               ║
 ; ║                                                                          ║
 ; ║  • Left-click  Caps icon    → toggle Caps Lock                          ║
 ; ║  • Left-click  Num  icon    → toggle Num Lock                           ║
@@ -15,6 +15,9 @@
 ;@Ahk2Exe-AddResource icons\NumLockOff.ico,    213
 ;@Ahk2Exe-AddResource icons\ScrollLockOn.ico,  214
 ;@Ahk2Exe-AddResource icons\ScrollLockOff.ico, 215
+;@Ahk2Exe-AddResource icons\CapsLockOff_Light.ico,   216
+;@Ahk2Exe-AddResource icons\NumLockOff_Light.ico,     217
+;@Ahk2Exe-AddResource icons\ScrollLockOff_Light.ico,  218
 
 #Requires AutoHotkey v2.0 64-bit
 #SingleInstance Force
@@ -22,7 +25,7 @@ Persistent
 #NoTrayIcon   ; suppress AHK's own icon — we manage ours manually
 
 ; ── VERSION ───────────────────────────────────────────────────────────────────
-global g_version := "1.4.0"
+global g_version := "1.4.1"
 
 ; ── ICON IDs ──────────────────────────────────────────────────────────────────
 global ID_CAPS   := 10
@@ -63,7 +66,7 @@ GetEffectiveDpi() {
 ; ── THEME DETECTION ──────────────────────────────────────────────────────────
 ; Read Windows light/dark theme preference from registry.
 ; 1 = light theme (apps use light), 0 = dark theme.
-; Icon variants for light theme deferred — detection only for now.
+; Light theme uses darker OFF icons so they remain visible on light taskbar.
 global g_lightTheme := DetectLightTheme()
 
 DetectLightTheme() {
@@ -83,11 +86,11 @@ global g_ownedIcons := Map()
 ; FIX P1-A: integer ordinals (32516=IDI_INFORMATION, 32515=IDI_WARNING)
 ; String ordinals like "IDI_WARNING" always return NULL from LoadIcon
 global g_hCapOn     := LoadIco("CapsLockOn",    32516)   ; fallback: IDI_INFORMATION
-global g_hCapOff    := LoadIco("CapsLockOff",   32515)   ; fallback: IDI_WARNING
+global g_hCapOff    := LoadIco(g_lightTheme ? "CapsLockOff_Light"   : "CapsLockOff",   32515)   ; fallback: IDI_WARNING
 global g_hNumOn     := LoadIco("NumLockOn",     32516)
-global g_hNumOff    := LoadIco("NumLockOff",    32515)
+global g_hNumOff    := LoadIco(g_lightTheme ? "NumLockOff_Light"    : "NumLockOff",    32515)
 global g_hScrollOn  := LoadIco("ScrollLockOn",  32516)
-global g_hScrollOff := LoadIco("ScrollLockOff", 32515)
+global g_hScrollOff := LoadIco(g_lightTheme ? "ScrollLockOff_Light" : "ScrollLockOff", 32515)
 
 ; ── ADD TRAY ICONS ────────────────────────────────────────────────────────────
 if g_showCaps
@@ -548,7 +551,7 @@ LoadIco(name, fallbackOrdinal := 32512) {
     }
     ; Stage 2: embedded PE resource (compiled .exe only)
     if A_IsCompiled {
-        resIDs := Map("CapsLockOn", 210, "CapsLockOff", 211, "NumLockOn", 212, "NumLockOff", 213, "ScrollLockOn", 214, "ScrollLockOff", 215)
+        resIDs := Map("CapsLockOn", 210, "CapsLockOff", 211, "NumLockOn", 212, "NumLockOff", 213, "ScrollLockOn", 214, "ScrollLockOff", 215, "CapsLockOff_Light", 216, "NumLockOff_Light", 217, "ScrollLockOff_Light", 218)
         if resIDs.Has(name) {
             hInst := DllCall("GetModuleHandle", "Ptr", 0, "Ptr")
             hIcon := DllCall("LoadImage", "Ptr", hInst,
