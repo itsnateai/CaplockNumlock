@@ -2,13 +2,18 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [1.4.1] - 2026-03-13
+
+### Added
+- **Light-theme icon variants** — OFF icons now use dark gray (`#606060`) instead of white when Windows light theme is detected, ensuring visibility on light taskbars. New icon files: `CapsLockOff_Light.ico`, `NumLockOff_Light.ico`, `ScrollLockOff_Light.ico`. Embedded as PE resources (IDs 216-218).
+
 ## [1.4.0] - 2026-03-12
 
 ### Added
 - **Scroll Lock tray icon** — third independent tray icon (ID 12) for Scroll Lock state. Opt-in via `ShowScroll=0` in INI (disabled by default). Includes left-click toggle, right-click menu, Settings GUI checkbox, OSD tooltip, beep feedback, and Explorer restart recovery.
 - **ScrollLockOn.ico / ScrollLockOff.ico** — matching green/gray up-down arrow icons in `icons/` folder. Embedded as PE resources (IDs 214-215) for compiled .exe.
 - **Per-monitor DPI** — replaced `GetDpiForSystem()` with `GetDpiForWindow(A_ScriptHwnd)` via new `GetEffectiveDpi()` helper. Tray icons now scale correctly on mixed-DPI multi-monitor setups. Falls back to system DPI on older Windows versions.
-- **Dark/light theme detection** — reads `SystemUsesLightTheme` registry value at startup via `DetectLightTheme()`. Stored in `g_lightTheme` global. Icon variants for light theme deferred to a future release.
+- **Dark/light theme detection** — reads `SystemUsesLightTheme` registry value at startup via `DetectLightTheme()`. Stored in `g_lightTheme` global.
 
 ### Changed
 - `SetIconVisible` last-icon guard now counts all 3 icons (was only checking 2)
