@@ -205,9 +205,12 @@ OnTrayMsg(wParam, lParam, *) {
     WM_CONTEXTMENU := 0x007B
 
     if (event = WM_LBUTTONUP) {
-        if      (iconID = ID_CAPS)   ToggleCapsLock()
-        else if (iconID = ID_NUM)    ToggleNumLock()
-        else if (iconID = ID_SCROLL) ToggleScrollLock()
+        if (iconID = ID_CAPS)
+            ToggleCapsLock()
+        else if (iconID = ID_NUM)
+            ToggleNumLock()
+        else if (iconID = ID_SCROLL)
+            ToggleScrollLock()
         return
     }
 
