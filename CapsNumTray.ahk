@@ -163,6 +163,7 @@ ToggleScrollLock() {
 
 ; Show or hide an icon, save the pref to ini
 SetIconVisible(id, visible) {
+    global g_showCaps, g_showNum, g_showScroll
     ; Guard: refuse to hide the last visible icon
     if !visible {
         visibleCount := g_showCaps + g_showNum + g_showScroll
@@ -205,6 +206,7 @@ OnTrayMsg(wParam, lParam, *) {
     if (clickY > 32767)  clickY -= 65536
 
     WM_LBUTTONUP   := 0x202
+    WM_RBUTTONUP   := 0x205
     WM_CONTEXTMENU := 0x007B
 
     if (event = WM_LBUTTONUP) {
@@ -217,7 +219,7 @@ OnTrayMsg(wParam, lParam, *) {
         return
     }
 
-    if (event != WM_CONTEXTMENU)
+    if (event != WM_CONTEXTMENU && event != WM_RBUTTONUP)
         return
 
     m := Menu()
@@ -267,7 +269,11 @@ OnTrayMsg(wParam, lParam, *) {
     m.Add("Settings...", (*) => ShowSettingsGUI())
     m.Add()
     m.Add("Exit CapsNumTray", (*) => ExitApp())
-    m.Show(clickX, clickY)
+    ; Win32 requirement: SetForegroundWindow before TrackPopupMenu or menu dismisses instantly
+    DllCall("SetForegroundWindow", "Ptr", A_ScriptHwnd)
+    try m.Show()
+    catch as e
+        ToolTip("Menu error: " e.Message)
 }
 
 ; FIX P1-B: re-add all icons after Explorer crash/restart
@@ -313,7 +319,7 @@ ShowSettingsGUI() {
     ; ── Tray Icons ──
     dlg.SetFont("s9 Bold")
     dlg.Add("Text", "x16 y16", "Tray Icons")
-    dlg.SetFont("s9 Normal")
+    dlg.SetFont("s9 Norm")
     dlg.Add("CheckBox", "x28 y+10 vChkShowCaps" (g_showCaps ? " Checked" : ""), "Show Caps Lock icon")
     dlg.Add("CheckBox", "x28 y+6 vChkShowNum" (g_showNum ? " Checked" : ""), "Show Num Lock icon")
     dlg.Add("CheckBox", "x28 y+6 vChkShowScroll" (g_showScroll ? " Checked" : ""), "Show Scroll Lock icon")
@@ -321,14 +327,14 @@ ShowSettingsGUI() {
     ; ── Feedback ──
     dlg.SetFont("s9 Bold")
     dlg.Add("Text", "x16 y+16", "Feedback")
-    dlg.SetFont("s9 Normal")
+    dlg.SetFont("s9 Norm")
     dlg.Add("CheckBox", "x28 y+10 vChkOSD" (g_showOSD ? " Checked" : ""), "Show OSD tooltip on toggle")
     dlg.Add("CheckBox", "x28 y+6 vChkBeep" (g_beepOnToggle ? " Checked" : ""), "Beep on toggle")
 
     ; ── Startup ──
     dlg.SetFont("s9 Bold")
     dlg.Add("Text", "x16 y+16", "Startup")
-    dlg.SetFont("s9 Normal")
+    dlg.SetFont("s9 Norm")
     dlg.Add("CheckBox", "x28 y+10 vChkStartup" (IsStartupEnabled() ? " Checked" : ""), "Run at Windows startup")
 
     ; ── Buttons ──
@@ -421,31 +427,29 @@ CAPSNUMTRAY — Caps/Num/Scroll Lock Tray Indicators
 
 CapsNumTray adds independent system tray icons that show the current state of your Caps Lock, Num Lock, and Scroll Lock keys. Left-click to toggle, right-click for options.
 
-Green/lit icon = key is ON
-Dim/grey icon = key is OFF
+Bright icon = key is ON
+Dim icon = key is OFF
 
 ─── BASIC USAGE ─────────────────────────────────
 
-• Left-click the Caps Lock tray icon to toggle Caps Lock.
-• Left-click the Num Lock tray icon to toggle Num Lock.
-• Left-click the Scroll Lock tray icon to toggle Scroll Lock.
+• Left-click any tray icon to toggle that key.
 • Right-click any icon for a menu with toggle, visibility, settings, and exit.
 
 ─── SETTINGS ────────────────────────────────────
 
-Show Caps Lock / Num Lock / Scroll Lock icon: Choose which icons appear in the tray. Scroll Lock is hidden by default (opt-in via Settings). At least one must remain visible.
+Show Caps/Num/Scroll Lock icon: Choose which icons appear in the tray. Scroll Lock is hidden by default. At least one must remain visible.
 
-Show OSD tooltip on toggle: When enabled, a small floating tooltip appears briefly (2 seconds) showing the new state after toggling.
+Show OSD tooltip on toggle: A small floating tooltip appears briefly showing the new state after toggling.
 
 Beep on toggle: Plays a short tone when you toggle a key. Higher pitch = ON, lower pitch = OFF.
 
-Run at Windows startup: Adds CapsNumTray to your Windows startup so it launches automatically at login.
+Run at Windows startup: Creates a shortcut in your Startup folder so CapsNumTray launches automatically at login.
 
-All settings are saved to CapsNumTray.ini next to the script and persist across restarts.
+All settings are saved to CapsNumTray.ini and persist across restarts.
 
 ─── TRAY ICONS ──────────────────────────────────
 
-Icons are loaded from the icons/ folder. If missing, compiled .exe versions use embedded resources. As a final fallback, Windows built-in system icons are used.
+Icons are embedded in the compiled .exe. When running from source, icons are loaded from the icons/ folder. Light-theme OFF variants are used automatically when Windows is set to a light taskbar theme. If all else fails, Windows built-in system icons are used as a fallback.
 
 ─── TECHNICAL NOTES ─────────────────────────────
 
@@ -470,24 +474,24 @@ HelpResize(hlp, minMax, w, h) {
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 IsStartupEnabled() {
-    try {
-        val := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray")
-        ; Verify the registered path matches the current script location
-        expected := A_IsCompiled ? A_ScriptFullPath
-                                 : '"' A_AhkPath '" "' A_ScriptFullPath '"'
-        return val = expected
-    } catch
-        return false
+    lnk := A_Startup "\CapsNumTray.lnk"
+    return FileExist(lnk) ? true : false
 }
 
 ToggleStartup() {
+    lnk := A_Startup "\CapsNumTray.lnk"
     if IsStartupEnabled() {
-        RegDelete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray"
+        FileDelete(lnk)
     } else {
-        ; Compiled .exe can launch directly; .ahk needs the AHK interpreter path
-        target := A_IsCompiled ? A_ScriptFullPath
-                               : '"' A_AhkPath '" "' A_ScriptFullPath '"'
-        RegWrite target, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsNumTray"
+        ; Create shortcut pointing to current exe/script
+        ws := ComObject("WScript.Shell")
+        sc := ws.CreateShortcut(lnk)
+        sc.TargetPath := A_IsCompiled ? A_ScriptFullPath
+                                      : A_AhkPath
+        if !A_IsCompiled
+            sc.Arguments := '"' A_ScriptFullPath '"'
+        sc.WorkingDirectory := A_ScriptDir
+        sc.Save()
     }
 }
 
