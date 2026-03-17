@@ -12,10 +12,10 @@ CapsNumTray is a lightweight AHK v2 utility that adds system tray icons showing 
 
 ```bash
 # Run (requires AHK v2 installed)
-"C:/Users/swift/.xn/_Projects/_tools/AutoHotkey64.exe" CapsNumTray.ahk
+"C:/Users/swift/.xn/_Projects/_.claude/_tools/Ahk/AutoHotkey64.exe" CapsNumTray.ahk
 
 # Compile to standalone .exe
-MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
+MSYS_NO_PATHCONV=1 "X:/_Projects/_.claude/_tools/Ahk/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
 ```
 
 ## Key Files

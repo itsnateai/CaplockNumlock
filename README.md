@@ -67,7 +67,7 @@ Uses the Win32 `Shell_NotifyIconW` API directly to create independent tray icons
 To compile to a standalone `.exe` (no AutoHotkey installation needed):
 
 ```bash
-MSYS_NO_PATHCONV=1 "X:/_Projects/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
+MSYS_NO_PATHCONV=1 "X:/_Projects/_.claude/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
 ```
 
 > **Note:** Use `/compress 0` — default compression triggers Windows Defender false positives.
