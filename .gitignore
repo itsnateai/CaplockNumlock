@@ -41,3 +41,10 @@ obj/
 # Syncthing
 .stfolder/
 .stversions/
+*.sync-conflict-*
+*.sync-tmp
+
+# Project docs (auto-generated)
+CLAUDE.md
+FINAL_REPORT.md
+*.user
