@@ -15,6 +15,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _chkOSD;
     private readonly CheckBox _chkBeep;
     private readonly CheckBox _chkStartup;
+    private readonly System.Drawing.Font _formFont;
     private readonly System.Drawing.Font _boldFont;
 
     public SettingsForm(ConfigManager config, TrayApplication app)
@@ -30,7 +31,8 @@ internal sealed class SettingsForm : Form
         BackColor = System.Drawing.Color.White;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = new System.Drawing.Font("Segoe UI", 9f);
+        _formFont = new System.Drawing.Font("Segoe UI", 9f);
+        Font = _formFont;
         _boldFont = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
 
         int y = 16;
@@ -129,8 +131,7 @@ internal sealed class SettingsForm : Form
         _helpForm = new HelpForm();
         _helpForm.FormClosed += (_, _) =>
         {
-            _helpForm.Dispose();
-            _helpForm = null;
+            _helpForm = null; // Close() on Show()-ed form auto-disposes
         };
         _helpForm.Show();
     }
@@ -141,6 +142,7 @@ internal sealed class SettingsForm : Form
         {
             _helpForm?.Dispose();
             _boldFont.Dispose();
+            _formFont.Dispose();
         }
         base.Dispose(disposing);
     }
