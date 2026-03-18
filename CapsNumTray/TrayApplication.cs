@@ -273,14 +273,20 @@ internal sealed class TrayApplication : Form
         menu.Closed += (_, _) =>
         {
             // Post disposal to avoid disposing during the Closed event
-            BeginInvoke(() =>
+            // Guard against ObjectDisposedException if form is shutting down
+            if (_disposed || !IsHandleCreated) return;
+            try
             {
-                if (_contextMenu == menu)
+                BeginInvoke(() =>
                 {
-                    _contextMenu.Dispose();
-                    _contextMenu = null;
-                }
-            });
+                    if (_contextMenu == menu)
+                    {
+                        _contextMenu.Dispose();
+                        _contextMenu = null;
+                    }
+                });
+            }
+            catch (ObjectDisposedException) { }
         };
 
         // Version header (disabled)
@@ -357,8 +363,7 @@ internal sealed class TrayApplication : Form
         _settingsForm = new SettingsForm(_config, this);
         _settingsForm.FormClosed += (_, _) =>
         {
-            _settingsForm.Dispose();
-            _settingsForm = null;
+            _settingsForm = null; // Close() on Show()-ed form auto-disposes
         };
         _settingsForm.Show();
     }
