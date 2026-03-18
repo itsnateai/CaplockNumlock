@@ -2,6 +2,27 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.0.0] - 2026-03-18
+
+### Added
+- **Full C# (.NET 8 WinForms) port** — complete rewrite from AHK v2 to C#. All features preserved: multi-icon tray, click-to-toggle, context menus, Settings dialog, Help window, OSD tooltips, beep feedback, startup management, dark/light theme detection, per-monitor DPI scaling, 3-stage icon fallback.
+- **Embedded icon resources** — all 9 .ico files embedded directly in the assembly (no external files needed at runtime)
+- **Single-file publish** — `dotnet publish` produces a self-contained single .exe
+
+### Changed
+- **Architecture** — 10 focused C# files replacing single 590-line AHK script: `Program.cs`, `TrayApplication.cs`, `NativeMethods.cs`, `IconManager.cs`, `ConfigManager.cs`, `OsdForm.cs`, `SettingsForm.cs`, `HelpForm.cs`, `StartupManager.cs`
+- **Startup management** — uses Start Menu .lnk shortcut (via WScript.Shell COM) instead of registry Run key
+- **INI format** — fully compatible with existing AHK-generated `.ini` files
+
+### Fixed
+- 13 audit issues resolved across security, memory leaks, and correctness:
+  - Font/Timer/Process disposal paths verified and corrected
+  - COM objects released in `finally` blocks
+  - `ContextMenuStrip` lifecycle managed correctly (non-blocking `Show()`)
+  - `BeginInvoke` guarded against shutdown race conditions
+  - 64-bit `LParam` safety (`unchecked((int)(long)m.LParam)`)
+  - Icon handle ownership tracking (owned vs shared system handles)
+
 ## [1.4.1] - 2026-03-13
 
 ### Added

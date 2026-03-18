@@ -9,12 +9,27 @@ Caps Lock, Num Lock, and Scroll Lock tray indicators for Windows. Shows the curr
 ### Requirements
 
 - Windows 10/11
-- [AutoHotkey v2](https://www.autohotkey.com/) (or use the compiled .exe)
+- .NET 8 Runtime (or use the self-contained single-file `.exe` release)
 
 ### Quick Start
 
-1. Download the latest release (`CapsNumTray.exe`) — no AutoHotkey installation needed, icons are embedded
-2. Or clone/download this repo and run `CapsNumTray.ahk` with [AutoHotkey v2](https://www.autohotkey.com/)
+1. Download the latest release (`CapsNumTray.exe`) — self-contained, no dependencies needed
+2. Or clone this repo and build from source:
+
+```bash
+cd CapsNumTray
+dotnet build -c Release
+dotnet run -c Release
+```
+
+### Publish
+
+To produce a standalone single-file `.exe`:
+
+```bash
+cd CapsNumTray
+dotnet publish -c Release --self-contained true -p:PublishSingleFile=true
+```
 
 ## Features
 
@@ -27,15 +42,15 @@ Lightweight tray indicators that let you see and control Caps Lock, Num Lock, an
 - **Visibility persistence** — hide any icon and the preference sticks across restarts
 - **OSD tooltip** — brief floating notification when toggling a key (configurable)
 - **Optional beep** — audible feedback on toggle (off by default)
-- **Run at startup** — toggle via Settings dialog, managed via registry
+- **Run at startup** — toggle via Settings dialog, managed via Start Menu shortcut
 - **Per-monitor DPI** — icons scale correctly on mixed-DPI multi-monitor setups
 - **Dark/light theme detection** — reads system theme setting at startup
 - **Help window** — resizable help dialog with full usage guide
-- **Graceful fallbacks** — missing icon files fall back to embedded resources (compiled) or Windows built-in icons
+- **Graceful fallbacks** — missing icon files fall back to embedded resources or Windows built-in icons
 
 ## Configuration
 
-Settings are stored in `CapsNumTray.ini` (auto-created next to the script). Visibility of each icon can be toggled via the right-click context menu.
+Settings are stored in `CapsNumTray.ini` (auto-created next to the executable). Visibility of each icon can be toggled via the right-click context menu.
 
 ```ini
 [Visibility]
@@ -60,29 +75,15 @@ All settings can be configured via the Settings dialog (right-click any icon →
 
 ## How It Works
 
-Uses the Win32 `Shell_NotifyIconW` API directly to create independent tray icons (AHK's built-in tray only supports one icon). A 250ms timer polls `GetKeyState` and updates icons accordingly. Click events are handled via a custom window message callback.
-
-## Compilation
-
-To compile to a standalone `.exe` (no AutoHotkey installation needed):
-
-```bash
-MSYS_NO_PATHCONV=1 "X:/_Projects/_.claude/_tools/Ahk2Exe.exe" /in CapsNumTray.ahk /out CapsNumTray.exe /icon icons/CapsLockOn.ico /compress 0 /silent
-```
-
-> **Note:** Use `/compress 0` — default compression triggers Windows Defender false positives.
+Uses the Win32 `Shell_NotifyIconW` API directly (via P/Invoke) to create independent tray icons. A 250ms timer polls `GetKeyState` and updates icons on state change only. Click events are handled via NOTIFYICON_VERSION_4 custom window message callback.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `CapsNumTray.ahk` | Main script |
-| `icons/CapsLockOn.ico` | Tray icon — Caps Lock ON |
-| `icons/CapsLockOff.ico` | Tray icon — Caps Lock OFF |
-| `icons/NumLockOn.ico` | Tray icon — Num Lock ON |
-| `icons/NumLockOff.ico` | Tray icon — Num Lock OFF |
-| `icons/ScrollLockOn.ico` | Tray icon — Scroll Lock ON |
-| `icons/ScrollLockOff.ico` | Tray icon — Scroll Lock OFF |
+| `CapsNumTray/` | C# (.NET 8 WinForms) source — 10 files |
+| `CapsNumTray.ahk` | Legacy AHK v2 script |
+| `icons/*.ico` | 9 icon files (On/Off for each key, plus light-theme OFF variants) |
 | `CapsNumTray.ini` | User config (auto-created, gitignored) |
 
 ## License
