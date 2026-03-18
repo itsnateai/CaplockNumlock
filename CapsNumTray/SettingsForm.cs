@@ -15,6 +15,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _chkOSD;
     private readonly CheckBox _chkBeep;
     private readonly CheckBox _chkStartup;
+    private readonly System.Drawing.Font _boldFont;
 
     public SettingsForm(ConfigManager config, TrayApplication app)
     {
@@ -30,11 +31,12 @@ internal sealed class SettingsForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new System.Drawing.Font("Segoe UI", 9f);
+        _boldFont = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
 
         int y = 16;
 
         // ── Tray Icons ──
-        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, y), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold) };
+        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, y), AutoSize = true, Font = _boldFont };
         Controls.Add(lblIcons);
         y += 26;
 
@@ -44,7 +46,7 @@ internal sealed class SettingsForm : Form
 
         // ── Feedback ──
         y += 10;
-        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold) };
+        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont };
         Controls.Add(lblFeedback);
         y += 26;
 
@@ -53,7 +55,7 @@ internal sealed class SettingsForm : Form
 
         // ── Startup ──
         y += 10;
-        var lblStartup = new Label { Text = "Startup", Location = new(16, y), AutoSize = true, Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold) };
+        var lblStartup = new Label { Text = "Startup", Location = new(16, y), AutoSize = true, Font = _boldFont };
         Controls.Add(lblStartup);
         y += 26;
 
@@ -138,6 +140,7 @@ internal sealed class SettingsForm : Form
         if (disposing)
         {
             _helpForm?.Dispose();
+            _boldFont.Dispose();
         }
         base.Dispose(disposing);
     }

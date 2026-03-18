@@ -35,6 +35,7 @@ internal sealed class TrayApplication : Form
     private static readonly string ScrollOff = "Scroll Lock: OFF";
 
     private bool _disposed;
+    private bool _cleanedUp;
 
     public TrayApplication()
     {
@@ -206,7 +207,7 @@ internal sealed class TrayApplication : Form
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == _wmTaskbarCreated)
+        if ((uint)m.Msg == _wmTaskbarCreated)
         {
             // Explorer restarted — re-add all visible icons
             if (_config.ShowCaps) TrayAdd(ID_CAPS);
@@ -218,8 +219,9 @@ internal sealed class TrayApplication : Form
 
         if ((uint)m.Msg == NativeMethods.WM_TRAY)
         {
-            int lParam = m.LParam.ToInt32();
-            int wParam = m.WParam.ToInt32();
+            // Use unchecked to safely truncate 64-bit LParam/WParam to 32-bit
+            int lParam = unchecked((int)(long)m.LParam);
+            int wParam = unchecked((int)(long)m.WParam);
 
             int eventId = lParam & 0xFFFF;
             uint iconId = (uint)((lParam >> 16) & 0xFFFF);
@@ -252,10 +254,34 @@ internal sealed class TrayApplication : Form
 
     // ── Context Menu ───────────────────────────────────────────────────────
 
+    private ContextMenuStrip? _contextMenu;
+
     private void ShowContextMenu(uint iconId, int x, int y)
     {
-        using var menu = new ContextMenuStrip();
+        // Dispose previous menu if still alive
+        if (_contextMenu != null)
+        {
+            _contextMenu.Close();
+            _contextMenu.Dispose();
+            _contextMenu = null;
+        }
+
+        var menu = new ContextMenuStrip();
         menu.RenderMode = ToolStripRenderMode.System;
+
+        // Auto-dispose when menu closes
+        menu.Closed += (_, _) =>
+        {
+            // Post disposal to avoid disposing during the Closed event
+            BeginInvoke(() =>
+            {
+                if (_contextMenu == menu)
+                {
+                    _contextMenu.Dispose();
+                    _contextMenu = null;
+                }
+            });
+        };
 
         // Version header (disabled)
         var header = menu.Items.Add("CapsNumTray v" + Version);
@@ -305,6 +331,7 @@ internal sealed class TrayApplication : Form
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit CapsNumTray", null, (_, _) => ExitApplication());
 
+        _contextMenu = menu;
         NativeMethods.SetForegroundWindow(Handle);
         menu.Show(x, y);
     }
@@ -424,11 +451,15 @@ internal sealed class TrayApplication : Form
 
     private void Cleanup()
     {
+        if (_cleanedUp) return;
+        _cleanedUp = true;
+
         _syncTimer.Stop();
 
-        if (_config.ShowCaps) TrayRemove(ID_CAPS);
-        if (_config.ShowNum) TrayRemove(ID_NUM);
-        if (_config.ShowScroll) TrayRemove(ID_SCROLL);
+        // Remove all tray icons (NIM_DELETE is idempotent)
+        TrayRemove(ID_CAPS);
+        TrayRemove(ID_NUM);
+        TrayRemove(ID_SCROLL);
     }
 
     protected override void Dispose(bool disposing)
@@ -439,6 +470,7 @@ internal sealed class TrayApplication : Form
             Cleanup();
 
             _syncTimer.Dispose();
+            _contextMenu?.Dispose();
             _settingsForm?.Dispose();
             _icons.Dispose();
         }
