@@ -6,8 +6,11 @@ namespace CapsNumTray;
 /// </summary>
 internal sealed class OsdForm : Form
 {
+    private static readonly System.Drawing.Font SharedFont = new("Segoe UI", 9f);
+
     private readonly Label _label;
     private readonly System.Windows.Forms.Timer _hideTimer;
+    private bool _disposed;
 
     private static OsdForm? _current;
 
@@ -24,13 +27,13 @@ internal sealed class OsdForm : Form
         {
             Text = text,
             AutoSize = true,
-            Font = new System.Drawing.Font("Segoe UI", 9f),
+            Font = SharedFont,
             Location = new System.Drawing.Point(6, 4),
         };
         Controls.Add(_label);
 
         // Size to content
-        var sz = TextRenderer.MeasureText(text, _label.Font);
+        var sz = TextRenderer.MeasureText(text, SharedFont);
         ClientSize = new System.Drawing.Size(sz.Width + 16, sz.Height + 10);
 
         // Position near cursor, offset slightly
@@ -41,6 +44,8 @@ internal sealed class OsdForm : Form
         _hideTimer.Tick += (_, _) =>
         {
             _hideTimer.Stop();
+            if (_current == this)
+                _current = null;
             Close();
         };
         _hideTimer.Start();
@@ -48,8 +53,9 @@ internal sealed class OsdForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (!_disposed && disposing)
         {
+            _disposed = true;
             _hideTimer.Stop();
             _hideTimer.Dispose();
             _label.Dispose();

@@ -57,7 +57,6 @@ internal sealed class HelpForm : Form
         BackColor = System.Drawing.Color.White;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = new System.Drawing.Font("Segoe UI", 9f);
         MinimumSize = new System.Drawing.Size(400, 300);
         ClientSize = new System.Drawing.Size(460, 420);
 

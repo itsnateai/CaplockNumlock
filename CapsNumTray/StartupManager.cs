@@ -34,6 +34,7 @@ internal static class StartupManager
     private static void CreateShortcut()
     {
         object? shell = null;
+        object? shortcut = null;
         try
         {
             var shellType = Type.GetTypeFromProgID("WScript.Shell");
@@ -42,7 +43,8 @@ internal static class StartupManager
             if (shell == null) return;
 
             dynamic dynShell = shell;
-            dynamic sc = dynShell.CreateShortcut(ShortcutPath);
+            shortcut = dynShell.CreateShortcut(ShortcutPath);
+            dynamic sc = shortcut;
             sc.TargetPath = Environment.ProcessPath;
             sc.WorkingDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? "";
             sc.Save();
@@ -53,6 +55,8 @@ internal static class StartupManager
         }
         finally
         {
+            if (shortcut != null)
+                Marshal.ReleaseComObject(shortcut);
             if (shell != null)
                 Marshal.ReleaseComObject(shell);
         }
