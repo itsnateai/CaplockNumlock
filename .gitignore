@@ -31,6 +31,9 @@ credentials.json
 
 # Build output
 *.exe
+bin/
+obj/
+.vs/
 
 # Project config (auto-generated)
 *.ini
