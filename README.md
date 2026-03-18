@@ -1,56 +1,53 @@
 # CapsNumTray
 
-Caps Lock, Num Lock, and Scroll Lock tray indicators for Windows. Shows the current state of each key as system tray icons with click-to-toggle support.
+Caps Lock, Num Lock, and Scroll Lock tray indicators for Windows.
 
-**[Installation](#installation)** · **[Features](#features)** · **[Configuration](#configuration)** · **[How It Works](#how-it-works)**
-
-## Installation
-
-### Requirements
-
-- Windows 10/11
-- .NET 8 Runtime (or use the self-contained single-file `.exe` release)
-
-### Quick Start
-
-1. Download the latest release (`CapsNumTray.exe`) — self-contained, no dependencies needed
-2. Or clone this repo and build from source:
-
-```bash
-cd CapsNumTray
-dotnet build -c Release
-dotnet run -c Release
-```
-
-### Publish
-
-To produce a standalone single-file `.exe`:
-
-```bash
-cd CapsNumTray
-dotnet publish -c Release --self-contained true -p:PublishSingleFile=true
-```
+A lightweight system tray utility that shows the current state of your lock keys as independent tray icons. Left-click to toggle, right-click for options. Bright icon = ON, dim icon = OFF.
 
 ## Features
 
-Lightweight tray indicators that let you see and control Caps Lock, Num Lock, and Scroll Lock at a glance:
+- **Independent tray icons** for Caps Lock, Num Lock, and Scroll Lock
+- **Left-click to toggle** any lock key from the tray
+- **Light theme support**: Automatic dim icon variants for light taskbar themes
+- **DPI-aware icons**: Crisp at any display scaling
+- **Show/hide individual icons**: Scroll Lock hidden by default (opt-in)
+- **On-screen display**: Floating tooltip shows state after toggle
+- **Beep feedback**: Optional audible tone (higher pitch = ON)
+- **Run at startup**: One-click toggle via Settings
+- **Explorer restart recovery**: Icons survive Explorer crashes
+- **Settings dialog**: GUI for all options with OK/Apply/Cancel
 
-- **Tray icons** show ON/OFF state for Caps Lock, Num Lock, and Scroll Lock (opt-in)
-- **Left-click** any icon to toggle that key
-- **Right-click** for a context menu with toggle, show/hide, settings, and exit options
-- **Settings GUI** — full settings dialog with checkboxes for all options, plus GitHub and Help buttons
-- **Visibility persistence** — hide any icon and the preference sticks across restarts
-- **OSD tooltip** — brief floating notification when toggling a key (configurable)
-- **Optional beep** — audible feedback on toggle (off by default)
-- **Run at startup** — toggle via Settings dialog, managed via Start Menu shortcut
-- **Per-monitor DPI** — icons scale correctly on mixed-DPI multi-monitor setups
-- **Dark/light theme detection** — reads system theme setting at startup
-- **Help window** — resizable help dialog with full usage guide
-- **Graceful fallbacks** — missing icon files fall back to embedded resources or Windows built-in icons
+## Requirements
 
-## Configuration
+- Windows 10/11
 
-Settings are stored in `CapsNumTray.ini` (auto-created next to the executable). Visibility of each icon can be toggled via the right-click context menu.
+## Installation
+
+### Option 1: Download
+
+Grab the latest release from [Releases](https://github.com/itsnateai/CaplockNumlock/releases):
+
+| File | Size | Notes |
+|------|------|-------|
+| **CapsNumTray.exe** | ~155 KB | Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| **CapsNumTray-standalone.exe** | ~150 MB | No runtime needed, click and go |
+
+### Option 2: Build from source
+
+```bash
+git clone https://github.com/itsnateai/CaplockNumlock.git
+cd CaplockNumlock
+
+# Framework-dependent (~155KB, requires .NET 8 runtime)
+dotnet publish -c Release
+
+# Self-contained (~150MB, no runtime needed)
+dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -r win-x64
+```
+
+## Customization
+
+Settings are stored in `CapsNumTray.ini` (auto-created next to the exe):
 
 ```ini
 [Visibility]
@@ -63,28 +60,34 @@ ShowOSD=1
 BeepOnToggle=0
 ```
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `ShowCaps` | `1` | Show the Caps Lock tray icon |
-| `ShowNum` | `1` | Show the Num Lock tray icon |
-| `ShowScroll` | `0` | Show the Scroll Lock tray icon (opt-in, disabled by default) |
-| `ShowOSD` | `1` | Show floating tooltip when toggling a key |
-| `BeepOnToggle` | `0` | Play a beep sound when toggling a key |
-
-All settings can be configured via the Settings dialog (right-click any icon → Settings...).
+| Key | Default | Description |
+|-----|---------|-------------|
+| `ShowCaps` | `1` | Show Caps Lock tray icon |
+| `ShowNum` | `1` | Show Num Lock tray icon |
+| `ShowScroll` | `0` | Show Scroll Lock tray icon |
+| `ShowOSD` | `1` | Floating tooltip on toggle |
+| `BeepOnToggle` | `0` | Audible tone on toggle |
 
 ## How It Works
 
-Uses the Win32 `Shell_NotifyIconW` API directly (via P/Invoke) to create independent tray icons. A 250ms timer polls `GetKeyState` and updates icons on state change only. Click events are handled via NOTIFYICON_VERSION_4 custom window message callback.
+CapsNumTray uses the Win32 `Shell_NotifyIconW` API directly (not `NotifyIcon`) to support multiple independent tray icons. A 250ms polling timer via `GetKeyState` keeps icons in sync even when keys are toggled externally. Icons are DPI-aware via `GetDpiForWindow` and automatically re-added if Explorer restarts.
 
-## Files
+## Project Structure
 
-| File | Purpose |
-|------|---------|
-| `CapsNumTray/` | C# (.NET 8 WinForms) source — 10 files |
-| `CapsNumTray.ahk` | Legacy AHK v2 script |
-| `icons/*.ico` | 9 icon files (On/Off for each key, plus light-theme OFF variants) |
-| `CapsNumTray.ini` | User config (auto-created, gitignored) |
+| Path | Description |
+|------|-------------|
+| `CapsNumTray.csproj` | .NET 8 project file |
+| `Program.cs` | Entry point — single-instance enforcement |
+| `TrayApplication.cs` | Core app — Shell_NotifyIconW, WndProc, key toggling, menus |
+| `IconManager.cs` | DPI-aware icon loading with 3-stage fallback |
+| `ConfigManager.cs` | INI file reader/writer |
+| `OsdForm.cs` | Auto-hiding tooltip overlay |
+| `SettingsForm.cs` | Settings GUI |
+| `HelpForm.cs` | Help text window |
+| `NativeMethods.cs` | Win32 P/Invoke declarations |
+| `StartupManager.cs` | Startup shortcut management |
+| `icons/*.ico` | 9 icon files (ON/OFF/Light variants) |
+| `legacy/CapsNumTray.ahk` | Original AutoHotkey v2 script (archived) |
 
 ## License
 
