@@ -2,6 +2,11 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.0.1] - 2026-03-19
+
+### Bug Fixes
+- **Form no longer appears above taskbar** — `Application.Run(form)` was forcing the invisible owner form visible as a minimized window. Added `SetVisibleCore` override to suppress visibility while keeping the window handle alive for the message loop.
+
 ## [2.0.0] - 2026-03-18
 
 ### Added

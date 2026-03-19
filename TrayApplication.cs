@@ -8,7 +8,7 @@ namespace CapsNumTray;
 /// </summary>
 internal sealed class TrayApplication : Form
 {
-    public const string Version = "2.0.0";
+    public const string Version = "2.0.1";
 
     // Icon IDs matching AHK convention
     private const uint ID_CAPS = 10;
