@@ -94,6 +94,19 @@ internal sealed class TrayApplication : Form
         }
     }
 
+    // ── Prevent Application.Run() from showing the form ────────────────────
+    // Application.Run(form) internally sets Visible = true, which shows a
+    // minimized tool window bar above the taskbar. Override SetVisibleCore
+    // to suppress the initial show while still creating the handle needed
+    // for WndProc and the message loop.
+    protected override void SetVisibleCore(bool value)
+    {
+        // This form is tray-only — never show it. Just ensure the handle
+        // exists so WndProc and the message loop work.
+        if (!IsHandleCreated) CreateHandle();
+        base.SetVisibleCore(false);
+    }
+
     // ── Key State Helpers ──────────────────────────────────────────────────
 
     private static bool IsKeyToggled(byte vk) =>
