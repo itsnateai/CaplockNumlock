@@ -159,7 +159,7 @@ internal sealed class TrayApplication : Form
         bool newState = IsKeyToggled(NativeMethods.VK_CAPITAL);
         SyncIcons(force: true);
         if (_config.BeepOnToggle)
-            NativeMethods.Beep(newState ? 880u : 440u, 80);
+            BeepAsync(newState ? 880u : 440u);
         if (_config.ShowOSD)
             OsdForm.ShowOsd(newState ? CapsOn : CapsOff);
     }
@@ -170,7 +170,7 @@ internal sealed class TrayApplication : Form
         bool newState = IsKeyToggled(NativeMethods.VK_NUMLOCK);
         SyncIcons(force: true);
         if (_config.BeepOnToggle)
-            NativeMethods.Beep(newState ? 1000u : 500u, 80);
+            BeepAsync(newState ? 1000u : 500u);
         if (_config.ShowOSD)
             OsdForm.ShowOsd(newState ? NumOn : NumOff);
     }
@@ -181,10 +181,13 @@ internal sealed class TrayApplication : Form
         bool newState = IsKeyToggled(NativeMethods.VK_SCROLL);
         SyncIcons(force: true);
         if (_config.BeepOnToggle)
-            NativeMethods.Beep(newState ? 1100u : 550u, 80);
+            BeepAsync(newState ? 1100u : 550u);
         if (_config.ShowOSD)
             OsdForm.ShowOsd(newState ? ScrollOn : ScrollOff);
     }
+
+    private static void BeepAsync(uint freq) =>
+        Task.Run(() => NativeMethods.Beep(freq, 80));
 
     // ── Icon Visibility ────────────────────────────────────────────────────
 

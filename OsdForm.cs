@@ -18,7 +18,6 @@ internal sealed class OsdForm : Form
     {
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
-        TopMost = true;
         BackColor = System.Drawing.Color.FromArgb(255, 255, 225); // tooltip yellow
         StartPosition = FormStartPosition.Manual;
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -36,9 +35,17 @@ internal sealed class OsdForm : Form
         var sz = TextRenderer.MeasureText(text, SharedFont);
         ClientSize = new System.Drawing.Size(sz.Width + 16, sz.Height + 10);
 
-        // Position near cursor, offset slightly
+        // Position near cursor, clamped to the working area of the active screen
         var pos = Cursor.Position;
-        Location = new System.Drawing.Point(pos.X + 16, pos.Y + 16);
+        var screen = Screen.FromPoint(pos);
+        var area = screen.WorkingArea;
+        int x = pos.X + 16;
+        int y = pos.Y + 16;
+        if (x + Width > area.Right) x = area.Right - Width;
+        if (y + Height > area.Bottom) y = area.Bottom - Height;
+        if (x < area.Left) x = area.Left;
+        if (y < area.Top) y = area.Top;
+        Location = new System.Drawing.Point(x, y);
 
         _hideTimer = new System.Windows.Forms.Timer { Interval = durationMs };
         _hideTimer.Tick += (_, _) =>
@@ -71,7 +78,7 @@ internal sealed class OsdForm : Form
         {
             var cp = base.CreateParams;
             cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
-            cp.ExStyle |= 0x00000008; // WS_EX_TOPMOST
+            cp.ExStyle |= 0x00000008; // WS_EX_TOPMOST (authoritative — TopMost property removed)
             return cp;
         }
     }
