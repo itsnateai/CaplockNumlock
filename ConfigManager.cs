@@ -5,6 +5,7 @@ namespace CapsNumTray;
 /// </summary>
 internal sealed class ConfigManager
 {
+    private static readonly System.Text.Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
     private readonly string _iniPath;
 
     public bool ShowCaps { get; set; } = true;
@@ -26,7 +27,7 @@ internal sealed class ConfigManager
 
         try
         {
-            string[] lines = File.ReadAllLines(_iniPath, new System.Text.UTF8Encoding(false));
+            string[] lines = File.ReadAllLines(_iniPath, Utf8NoBom);
             string currentSection = "";
 
             foreach (string rawLine in lines)
@@ -80,7 +81,7 @@ internal sealed class ConfigManager
                 $"ShowOSD={B(ShowOSD)}\r\n" +
                 $"BeepOnToggle={B(BeepOnToggle)}\r\n";
 
-            File.WriteAllText(_iniPath, content, new System.Text.UTF8Encoding(false));
+            File.WriteAllText(_iniPath, content, Utf8NoBom);
         }
         catch
         {
