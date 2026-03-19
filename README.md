@@ -17,6 +17,12 @@ A lightweight system tray utility that shows the current state of your lock keys
 - **Explorer restart recovery**: Icons survive Explorer crashes
 - **Settings dialog**: GUI for all options with OK/Apply/Cancel
 
+## Screenshots
+
+| Tray Menu | Settings |
+|:---:|:---:|
+| ![Menu](screenshots/capslockmenu.png) | ![Settings](screenshots/capslocksettings.png) |
+
 ## Requirements
 
 - Windows 10/11
