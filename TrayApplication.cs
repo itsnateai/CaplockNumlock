@@ -36,6 +36,10 @@ internal sealed class TrayApplication : Form
 
     private bool _disposed;
     private bool _cleanedUp;
+    private bool _syncing;
+
+    // Cache struct size — Marshal.SizeOf uses reflection internally
+    private static readonly uint NidSize = (uint)Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>();
 
     public TrayApplication()
     {
@@ -105,33 +109,45 @@ internal sealed class TrayApplication : Form
 
     private void SyncIcons(bool force = false)
     {
-        bool capsOn = IsKeyToggled(NativeMethods.VK_CAPITAL);
-        bool numOn = IsKeyToggled(NativeMethods.VK_NUMLOCK);
-        bool scrollOn = IsKeyToggled(NativeMethods.VK_SCROLL);
-
-        if (!force && _statesInitialized &&
-            capsOn == _lastCapsState && numOn == _lastNumState && scrollOn == _lastScrollState)
-            return;
-
-        _statesInitialized = true;
-
-        if (force || capsOn != _lastCapsState)
+        // Guard against re-entrancy: Shell_NotifyIconW can pump the message
+        // queue, which may dispatch another timer tick or a WndProc that
+        // calls SyncIcons again before the previous call completes.
+        if (_syncing) return;
+        _syncing = true;
+        try
         {
-            _lastCapsState = capsOn;
-            if (_config.ShowCaps)
-                TrayModify(ID_CAPS, capsOn ? _icons.CapsOn : _icons.CapsOff, capsOn ? CapsOn : CapsOff);
+            bool capsOn = IsKeyToggled(NativeMethods.VK_CAPITAL);
+            bool numOn = IsKeyToggled(NativeMethods.VK_NUMLOCK);
+            bool scrollOn = IsKeyToggled(NativeMethods.VK_SCROLL);
+
+            if (!force && _statesInitialized &&
+                capsOn == _lastCapsState && numOn == _lastNumState && scrollOn == _lastScrollState)
+                return;
+
+            _statesInitialized = true;
+
+            if (force || capsOn != _lastCapsState)
+            {
+                _lastCapsState = capsOn;
+                if (_config.ShowCaps)
+                    TrayModify(ID_CAPS, capsOn ? _icons.CapsOn : _icons.CapsOff, capsOn ? CapsOn : CapsOff);
+            }
+            if (force || numOn != _lastNumState)
+            {
+                _lastNumState = numOn;
+                if (_config.ShowNum)
+                    TrayModify(ID_NUM, numOn ? _icons.NumOn : _icons.NumOff, numOn ? NumOn : NumOff);
+            }
+            if (force || scrollOn != _lastScrollState)
+            {
+                _lastScrollState = scrollOn;
+                if (_config.ShowScroll)
+                    TrayModify(ID_SCROLL, scrollOn ? _icons.ScrollOn : _icons.ScrollOff, scrollOn ? ScrollOn : ScrollOff);
+            }
         }
-        if (force || numOn != _lastNumState)
+        finally
         {
-            _lastNumState = numOn;
-            if (_config.ShowNum)
-                TrayModify(ID_NUM, numOn ? _icons.NumOn : _icons.NumOff, numOn ? NumOn : NumOff);
-        }
-        if (force || scrollOn != _lastScrollState)
-        {
-            _lastScrollState = scrollOn;
-            if (_config.ShowScroll)
-                TrayModify(ID_SCROLL, scrollOn ? _icons.ScrollOn : _icons.ScrollOff, scrollOn ? ScrollOn : ScrollOff);
+            _syncing = false;
         }
     }
 
@@ -397,7 +413,7 @@ internal sealed class TrayApplication : Form
     {
         var nid = new NativeMethods.NOTIFYICONDATAW
         {
-            cbSize = (uint)Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>(),
+            cbSize = NidSize,
             hWnd = Handle,
             uID = id,
             uFlags = NativeMethods.NIF_MESSAGE,
@@ -419,7 +435,7 @@ internal sealed class TrayApplication : Form
     {
         var nid = new NativeMethods.NOTIFYICONDATAW
         {
-            cbSize = (uint)Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>(),
+            cbSize = NidSize,
             hWnd = Handle,
             uID = id,
             uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP | NativeMethods.NIF_SHOWTIP,
@@ -436,7 +452,7 @@ internal sealed class TrayApplication : Form
     {
         var nid = new NativeMethods.NOTIFYICONDATAW
         {
-            cbSize = (uint)Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>(),
+            cbSize = NidSize,
             hWnd = Handle,
             uID = id,
             szTip = "",
