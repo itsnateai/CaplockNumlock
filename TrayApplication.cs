@@ -394,9 +394,14 @@ internal sealed class TrayApplication : Form
             return;
         }
 
-        if (showCaps != _config.ShowCaps) SetIconVisible(ID_CAPS, showCaps);
-        if (showNum != _config.ShowNum) SetIconVisible(ID_NUM, showNum);
-        if (showScroll != _config.ShowScroll) SetIconVisible(ID_SCROLL, showScroll);
+        // Show new icons before hiding old ones so the "at least one visible"
+        // guard in SetIconVisible is never tripped mid-transition.
+        if (!_config.ShowCaps && showCaps) SetIconVisible(ID_CAPS, true);
+        if (!_config.ShowNum && showNum) SetIconVisible(ID_NUM, true);
+        if (!_config.ShowScroll && showScroll) SetIconVisible(ID_SCROLL, true);
+        if (_config.ShowCaps && !showCaps) SetIconVisible(ID_CAPS, false);
+        if (_config.ShowNum && !showNum) SetIconVisible(ID_NUM, false);
+        if (_config.ShowScroll && !showScroll) SetIconVisible(ID_SCROLL, false);
 
         _config.ShowOSD = showOSD;
         _config.BeepOnToggle = beepOnToggle;
