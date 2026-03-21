@@ -31,12 +31,7 @@ A lightweight system tray utility that shows the current state of your lock keys
 
 ### Option 1: Download
 
-Grab the latest release from [Releases](https://github.com/itsnateai/CaplockNumlock/releases):
-
-| File | Size | Notes |
-|------|------|-------|
-| **CapsNumTray.exe** | ~155 KB | Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
-| **CapsNumTray-standalone.exe** | ~150 MB | No runtime needed, click and go |
+Grab **[CapsNumTray.exe](https://github.com/itsnateai/CaplockNumlock/releases/latest)** from the latest release — single file, self-contained, no .NET runtime needed.
 
 ### Option 2: Build from source
 
