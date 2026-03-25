@@ -47,7 +47,7 @@ internal sealed class HelpForm : Form
         "\u2500\u2500\u2500 TECHNICAL NOTES \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n" +
         "\r\n" +
         "CapsNumTray uses the Win32 Shell_NotifyIconW API directly to support multiple " +
-        "independent tray icons. A 250ms polling timer keeps icons in sync even when keys " +
+        "independent tray icons. A 5-second polling timer keeps icons in sync even when keys " +
         "are changed externally. Icons are automatically re-added if Explorer restarts.";
 
     public HelpForm()

@@ -84,7 +84,7 @@ BeepOnToggle=0
 
 ## How It Works
 
-CapsNumTray uses the Win32 `Shell_NotifyIconW` API directly (not `NotifyIcon`) to support multiple independent tray icons. A 250ms polling timer via `GetKeyState` keeps icons in sync even when keys are toggled externally. Icons are DPI-aware via `GetDpiForWindow` and automatically re-added if Explorer restarts.
+CapsNumTray uses the Win32 `Shell_NotifyIconW` API directly (not `NotifyIcon`) to support multiple independent tray icons. A 5-second polling timer via `GetKeyState` keeps icons in sync even when keys are toggled externally. Icons are DPI-aware via `GetDpiForWindow` and automatically re-added if Explorer restarts.
 
 ## Project Structure
 

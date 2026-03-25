@@ -73,8 +73,9 @@ internal sealed class TrayApplication : Form
         // Initial sync
         SyncIcons(force: true);
 
-        // 250ms polling timer
-        _syncTimer = new System.Windows.Forms.Timer { Interval = 250 };
+        // 5s polling timer — safety net for external key state changes (RDP, other apps).
+        // User-triggered toggles call SyncIcons() directly, so this doesn't affect responsiveness.
+        _syncTimer = new System.Windows.Forms.Timer { Interval = 5000 };
         _syncTimer.Tick += (_, _) => SyncIcons();
         _syncTimer.Start();
     }
