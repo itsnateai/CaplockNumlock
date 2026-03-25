@@ -8,7 +8,7 @@ namespace CapsNumTray;
 /// </summary>
 internal sealed class TrayApplication : Form
 {
-    public const string Version = "2.0.2";
+    public static readonly string Version = typeof(TrayApplication).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     // Icon IDs matching AHK convention
     private const uint ID_CAPS = 10;
