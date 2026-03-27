@@ -48,3 +48,6 @@ obj/
 CLAUDE.md
 FINAL_REPORT.md
 *.user
+
+# Build output
+publish/
