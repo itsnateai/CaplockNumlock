@@ -13,7 +13,7 @@ internal sealed class ConfigManager
     public bool ShowScroll { get; set; } // false by default (opt-in)
     public bool ShowOSD { get; set; } = true;
     public bool BeepOnToggle { get; set; }
-    public int PollInterval { get; set; } = 10; // seconds, 0 = disabled, max 300 (5 min)
+    public int PollInterval { get; set; } // seconds, 0 = disabled (default), max 300 (5 min)
 
     public ConfigManager(string iniPath)
     {
