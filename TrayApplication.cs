@@ -19,6 +19,8 @@ internal sealed class TrayApplication : Form
     private readonly IconManager _icons;
     private readonly System.Windows.Forms.Timer _syncTimer;
     private readonly uint _wmTaskbarCreated;
+    private readonly NativeMethods.LowLevelKeyboardProc _hookProc;
+    private nint _hookHandle;
 
     // Cached last-known states to avoid redundant updates
     private bool _lastCapsState;
@@ -73,11 +75,16 @@ internal sealed class TrayApplication : Form
         // Initial sync
         SyncIcons(force: true);
 
-        // 5s polling timer — safety net for external key state changes (RDP, other apps).
-        // User-triggered toggles call SyncIcons() directly, so this doesn't affect responsiveness.
-        _syncTimer = new System.Windows.Forms.Timer { Interval = 5000 };
-        _syncTimer.Tick += (_, _) => SyncIcons();
-        _syncTimer.Start();
+        // Low-level keyboard hook for instant toggle detection
+        _hookProc = KeyboardHookCallback;
+        _hookHandle = NativeMethods.SetWindowsHookEx(
+            NativeMethods.WH_KEYBOARD_LL, _hookProc,
+            NativeMethods.GetModuleHandle(null), 0);
+
+        // Polling timer — safety net for external key state changes (RDP, other apps).
+        // The keyboard hook handles normal keystrokes instantly.
+        _syncTimer = new System.Windows.Forms.Timer();
+        ApplyPollInterval(_config.PollInterval);
     }
 
     private static bool DetectLightTheme()
@@ -107,6 +114,41 @@ internal sealed class TrayApplication : Form
         if (!IsHandleCreated) CreateHandle();
         base.SetVisibleCore(false);
     }
+
+    // ── Keyboard Hook ──────────────────────────────────────────────────────
+
+    private nint KeyboardHookCallback(int nCode, nint wParam, nint lParam)
+    {
+        if (nCode >= 0)
+        {
+            int vkCode = Marshal.ReadInt32(lParam);
+            if (vkCode == NativeMethods.VK_CAPITAL ||
+                vkCode == NativeMethods.VK_NUMLOCK ||
+                vkCode == NativeMethods.VK_SCROLL)
+            {
+                // Key-up means the toggle state has changed
+                if ((int)wParam == NativeMethods.WM_KEYUP || (int)wParam == NativeMethods.WM_SYSKEYUP)
+                    BeginInvoke(() => SyncIcons());
+            }
+        }
+        return NativeMethods.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+    }
+
+    // ── Poll Interval ─────────────────────────────────────────────────────
+
+    private void ApplyPollInterval(int seconds)
+    {
+        _syncTimer.Stop();
+        if (seconds > 0)
+        {
+            _syncTimer.Interval = seconds * 1000;
+            _syncTimer.Tick -= OnSyncTimerTick;
+            _syncTimer.Tick += OnSyncTimerTick;
+            _syncTimer.Start();
+        }
+    }
+
+    private void OnSyncTimerTick(object? sender, EventArgs e) => SyncIcons();
 
     // ── Key State Helpers ──────────────────────────────────────────────────
 
@@ -402,7 +444,7 @@ internal sealed class TrayApplication : Form
     }
 
     internal void ApplySettings(bool showCaps, bool showNum, bool showScroll,
-        bool showOSD, bool beepOnToggle, bool runAtStartup)
+        bool showOSD, bool beepOnToggle, bool runAtStartup, int pollInterval)
     {
         // Guard: at least one visible
         if (!showCaps && !showNum && !showScroll)
@@ -422,7 +464,10 @@ internal sealed class TrayApplication : Form
 
         _config.ShowOSD = showOSD;
         _config.BeepOnToggle = beepOnToggle;
+        _config.PollInterval = pollInterval;
         _config.Save();
+
+        ApplyPollInterval(pollInterval);
 
         StartupManager.SetEnabled(runAtStartup);
 
@@ -498,6 +543,12 @@ internal sealed class TrayApplication : Form
         _cleanedUp = true;
 
         _syncTimer.Stop();
+
+        if (_hookHandle != 0)
+        {
+            NativeMethods.UnhookWindowsHookEx(_hookHandle);
+            _hookHandle = 0;
+        }
 
         // Remove all tray icons (NIM_DELETE is idempotent)
         TrayRemove(ID_CAPS);

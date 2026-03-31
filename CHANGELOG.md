@@ -2,6 +2,15 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.1.0] - 2026-03-31
+
+### Added
+- **Low-level keyboard hook** — toggle key changes (Caps Lock, Num Lock, Scroll Lock) are now detected instantly via `WH_KEYBOARD_LL` instead of relying on polling. Icon updates are immediate.
+- **Configurable poll interval** — new "Polling" section in Settings with a numeric control (0–300 seconds). Default is 10 seconds. Set to 0 to disable polling entirely. The poll timer now serves as a failsafe for external state changes (RDP, SendKeys).
+
+### Changed
+- Default poll interval changed from 5 seconds to 10 seconds (keyboard hook handles normal usage instantly)
+
 ## [2.0.1] - 2026-03-19
 
 ### Bug Fixes

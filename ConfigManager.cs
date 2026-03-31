@@ -13,6 +13,7 @@ internal sealed class ConfigManager
     public bool ShowScroll { get; set; } // false by default (opt-in)
     public bool ShowOSD { get; set; } = true;
     public bool BeepOnToggle { get; set; }
+    public int PollInterval { get; set; } = 10; // seconds, 0 = disabled, max 300 (5 min)
 
     public ConfigManager(string iniPath)
     {
@@ -58,6 +59,8 @@ internal sealed class ConfigManager
                     case "General":
                         if (key == "ShowOSD") ShowOSD = val == "1";
                         else if (key == "BeepOnToggle") BeepOnToggle = val == "1";
+                        else if (key == "PollInterval" && int.TryParse(val, out int pi))
+                            PollInterval = Math.Clamp(pi, 0, 300);
                         break;
                 }
             }
@@ -79,7 +82,8 @@ internal sealed class ConfigManager
                 $"ShowScroll={B(ShowScroll)}\r\n" +
                 "\r\n[General]\r\n" +
                 $"ShowOSD={B(ShowOSD)}\r\n" +
-                $"BeepOnToggle={B(BeepOnToggle)}\r\n";
+                $"BeepOnToggle={B(BeepOnToggle)}\r\n" +
+                $"PollInterval={PollInterval}\r\n";
 
             File.WriteAllText(_iniPath, content, Utf8NoBom);
         }

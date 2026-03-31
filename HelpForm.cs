@@ -47,8 +47,14 @@ internal sealed class HelpForm : Form
         "\u2500\u2500\u2500 TECHNICAL NOTES \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n" +
         "\r\n" +
         "CapsNumTray uses the Win32 Shell_NotifyIconW API directly to support multiple " +
-        "independent tray icons. A 5-second polling timer keeps icons in sync even when keys " +
-        "are changed externally. Icons are automatically re-added if Explorer restarts.";
+        "independent tray icons. A low-level keyboard hook detects toggle key changes instantly. " +
+        "A configurable polling timer (default 10s, adjustable in Settings) acts as a failsafe " +
+        "for external changes (RDP, other apps). Set to 0 to disable polling entirely. " +
+        "Icons are automatically re-added if Explorer restarts.\r\n" +
+        "\r\n" +
+        "Fallback poll interval: Controls how often the app checks key states independently " +
+        "of the keyboard hook. Range: 0 (disabled) to 300 seconds (5 minutes). The keyboard " +
+        "hook handles normal key presses instantly, so this is only needed as a safety net.";
 
     public HelpForm()
     {

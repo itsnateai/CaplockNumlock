@@ -15,6 +15,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _chkOSD;
     private readonly CheckBox _chkBeep;
     private readonly CheckBox _chkStartup;
+    private readonly NumericUpDown _nudPollInterval;
     private readonly System.Drawing.Font _formFont;
     private readonly System.Drawing.Font _boldFont;
 
@@ -54,6 +55,26 @@ internal sealed class SettingsForm : Form
 
         _chkOSD = AddCheckBox("Show OSD tooltip on toggle", config.ShowOSD, 28, ref y);
         _chkBeep = AddCheckBox("Beep on toggle", config.BeepOnToggle, 28, ref y);
+
+        // ── Polling ──
+        y += 10;
+        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont };
+        Controls.Add(lblPolling);
+        y += 26;
+
+        var lblPollDesc = new Label { Text = "Fallback poll interval (seconds, 0 = disabled):", Location = new(28, y + 2), AutoSize = true };
+        Controls.Add(lblPollDesc);
+        _nudPollInterval = new NumericUpDown
+        {
+            Minimum = 0,
+            Maximum = 300,
+            Value = config.PollInterval,
+            Location = new(320, y),
+            Size = new(60, 24),
+            Increment = 5,
+        };
+        Controls.Add(_nudPollInterval);
+        y += 28;
 
         // ── Startup ──
         y += 10;
@@ -116,7 +137,8 @@ internal sealed class SettingsForm : Form
     {
         _app.ApplySettings(
             _chkCaps.Checked, _chkNum.Checked, _chkScroll.Checked,
-            _chkOSD.Checked, _chkBeep.Checked, _chkStartup.Checked);
+            _chkOSD.Checked, _chkBeep.Checked, _chkStartup.Checked,
+            (int)_nudPollInterval.Value);
     }
 
     private HelpForm? _helpForm;
@@ -141,6 +163,7 @@ internal sealed class SettingsForm : Form
         if (disposing)
         {
             _helpForm?.Dispose();
+            _nudPollInterval.Dispose();
             _boldFont.Dispose();
             _formFont.Dispose();
         }
