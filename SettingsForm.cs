@@ -98,25 +98,33 @@ internal sealed class SettingsForm : Form
         };
         Controls.Add(btnGitHub);
 
-        var btnHelp = new Button { Text = "Help", Location = new(102, y), Size = new(55, 28) };
+        var btnUpdate = new Button { Text = "Update", Location = new(102, y), Size = new(65, 28) };
+        btnUpdate.Click += (_, _) =>
+        {
+            using var dlg = new UpdateDialog();
+            dlg.ShowDialog(this);
+        };
+        Controls.Add(btnUpdate);
+
+        var btnHelp = new Button { Text = "Help", Location = new(173, y), Size = new(55, 28) };
         btnHelp.Click += (_, _) => ShowHelpWindow();
         Controls.Add(btnHelp);
 
-        var btnOK = new Button { Text = "OK", Location = new(200, y), Size = new(70, 28) };
+        var btnOK = new Button { Text = "OK", Location = new(240, y), Size = new(70, 28) };
         btnOK.Click += (_, _) => { Apply(); Close(); };
         Controls.Add(btnOK);
         AcceptButton = btnOK;
 
-        var btnApply = new Button { Text = "Apply", Location = new(278, y), Size = new(70, 28) };
+        var btnApply = new Button { Text = "Apply", Location = new(318, y), Size = new(70, 28) };
         btnApply.Click += (_, _) => Apply();
         Controls.Add(btnApply);
 
-        var btnCancel = new Button { Text = "Cancel", Location = new(356, y), Size = new(70, 28) };
+        var btnCancel = new Button { Text = "Cancel", Location = new(396, y), Size = new(70, 28) };
         btnCancel.Click += (_, _) => Close();
         Controls.Add(btnCancel);
         CancelButton = btnCancel;
 
-        ClientSize = new System.Drawing.Size(440, y + 42);
+        ClientSize = new System.Drawing.Size(480, y + 42);
     }
 
     private CheckBox AddCheckBox(string text, bool isChecked, int x, ref int y)

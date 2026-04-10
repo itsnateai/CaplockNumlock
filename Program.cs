@@ -3,7 +3,7 @@ namespace CapsNumTray;
 internal static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         // Single-instance: kill previous instances
         string processName = Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? "CapsNumTray");
@@ -18,7 +18,14 @@ internal static class Program
             }
         }
 
+        bool isAfterUpdate = args.Contains("--after-update");
+        UpdateDialog.CleanupUpdateArtifacts();
+
         ApplicationConfiguration.Initialize();
+
+        if (isAfterUpdate)
+            UpdateDialog.ShowUpdateToast();
+
         using var app = new TrayApplication();
         Application.Run(app);
     }
