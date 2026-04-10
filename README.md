@@ -101,7 +101,6 @@ CapsNumTray uses the Win32 `Shell_NotifyIconW` API directly (not `NotifyIcon`) t
 | `NativeMethods.cs` | Win32 P/Invoke declarations |
 | `StartupManager.cs` | Startup shortcut management |
 | `icons/*.ico` | 9 icon files (ON/OFF/Light variants) |
-| `legacy/CapsNumTray.ahk` | Original AutoHotkey v2 script (archived) |
 
 ## License
 
