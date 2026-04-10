@@ -19,9 +19,9 @@ A lightweight system tray utility that shows the current state of your lock keys
 
 ## Screenshots
 
-| Tray Menu | Settings |
-|:---:|:---:|
-| ![Menu](screenshots/capslockmenu.png) | ![Settings](screenshots/capslocksettings.png) |
+| Tray Icons | Tray Menu | Settings |
+|:---:|:---:|:---:|
+| ![Tray Icons](screenshots/caplocktrayicons.png) | ![Menu](screenshots/capslockmenu.png) | ![Settings](screenshots/capslocksettings.png) |
 
 ## Requirements
 
