@@ -33,20 +33,13 @@ A lightweight system tray utility that shows the current state of your lock keys
 
 Grab **[CapsNumTray.exe](https://github.com/itsnateai/CaplockNumlock/releases/latest)** from the latest release — single file, self-contained, no .NET runtime needed.
 
-### Option 2: Scoop (coming soon)
-
-```powershell
-scoop bucket add extras
-scoop install capsnumtray
-```
-
-### Option 3: WinGet (coming soon)
+### Option 2: WinGet (coming soon)
 
 ```powershell
 winget install itsnateai.CapsNumTray
 ```
 
-### Option 4: Build from source
+### Option 3: Build from source
 
 ```bash
 git clone https://github.com/itsnateai/CaplockNumlock.git
