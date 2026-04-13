@@ -157,8 +157,13 @@ internal sealed class TrayApplication : Form
 
     private static void ToggleKey(byte vk)
     {
-        NativeMethods.keybd_event(vk, 0x45, NativeMethods.KEYEVENTF_EXTENDEDKEY, 0);
-        NativeMethods.keybd_event(vk, 0x45, NativeMethods.KEYEVENTF_EXTENDEDKEY | NativeMethods.KEYEVENTF_KEYUP, 0);
+        var inputs = new NativeMethods.INPUT[2];
+        inputs[0].type = NativeMethods.INPUT_KEYBOARD;
+        inputs[0].u.ki.wVk = vk;
+        inputs[1].type = NativeMethods.INPUT_KEYBOARD;
+        inputs[1].u.ki.wVk = vk;
+        inputs[1].u.ki.dwFlags = NativeMethods.KEYEVENTF_KEYUP;
+        NativeMethods.SendInput(2, inputs, Marshal.SizeOf<NativeMethods.INPUT>());
     }
 
     // ── Sync Icons ─────────────────────────────────────────────────────────

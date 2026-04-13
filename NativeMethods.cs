@@ -74,8 +74,33 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern short GetKeyState(int nVirtKey);
 
-    [DllImport("user32.dll")]
-    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct INPUT
+    {
+        internal uint type;
+        internal INPUTUNION u;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct INPUTUNION
+    {
+        [FieldOffset(0)] internal KEYBDINPUT ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct KEYBDINPUT
+    {
+        internal ushort wVk;
+        internal ushort wScan;
+        internal uint dwFlags;
+        internal uint time;
+        internal nint dwExtraInfo;
+    }
+
+    internal const uint INPUT_KEYBOARD = 1;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
     [DllImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

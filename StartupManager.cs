@@ -31,6 +31,40 @@ internal static class StartupManager
         Toggle();
     }
 
+    /// <summary>
+    /// Self-heal startup shortcut if the exe has moved (e.g., winget upgrade to a new version folder).
+    /// Best-effort — silently ignored if COM is unavailable or shortcut doesn't exist.
+    /// </summary>
+    public static void ValidateStartupPath()
+    {
+        if (!File.Exists(ShortcutPath)) return;
+
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null) return;
+            dynamic shell = Activator.CreateInstance(shellType)!;
+            try
+            {
+                dynamic shortcut = shell.CreateShortcut(ShortcutPath);
+                try
+                {
+                    var targetPath = (string)shortcut.TargetPath;
+                    var currentPath = Environment.ProcessPath ?? "";
+                    if (!targetPath.Equals(currentPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        shortcut.TargetPath = currentPath;
+                        shortcut.WorkingDirectory = Path.GetDirectoryName(currentPath) ?? "";
+                        shortcut.Save();
+                    }
+                }
+                finally { Marshal.FinalReleaseComObject(shortcut); }
+            }
+            finally { Marshal.FinalReleaseComObject(shell); }
+        }
+        catch { /* Best-effort */ }
+    }
+
     private static void CreateShortcut()
     {
         object? shell = null;

@@ -135,6 +135,18 @@ internal sealed class UpdateDialog : Form
 
     private async Task CheckForUpdateAsync()
     {
+        if (IsWingetManaged())
+        {
+            _marqueeTimer.Stop();
+            _progressOuter.Visible = false;
+            _lblStatus.Text = "This installation is managed by winget.";
+            _lblDetail.Text = "Use: winget upgrade itsnateai.CapsNumTray";
+            _btnAction.Visible = false;
+            _btnCancel.Text = "OK";
+            _btnCancel.Location = new Point(170, 112);
+            return;
+        }
+
         _cts = new CancellationTokenSource();
         _marqueeTimer.Start();
 
@@ -259,6 +271,13 @@ internal sealed class UpdateDialog : Form
 
         try
         {
+            if (!_downloadUrl!.StartsWith("https://github.com/itsnateai/", StringComparison.OrdinalIgnoreCase) &&
+                !_downloadUrl.StartsWith("https://objects.githubusercontent.com/", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowError("Update failed: download URL is not from the expected source.");
+                return;
+            }
+
             if (!await DownloadFileAsync(_downloadUrl!, newPath))
                 return;
 
@@ -369,6 +388,8 @@ internal sealed class UpdateDialog : Form
 
     // ─── Error ──────────────────────────────────────────────────
 
+    private void ShowError(string message) => ShowError(message, "");
+
     private void ShowError(string message, string detail)
     {
         _marqueeTimer.Stop();
@@ -380,6 +401,11 @@ internal sealed class UpdateDialog : Form
         _btnCancel.Text = "OK";
         _btnCancel.Location = new Point(170, 112);
     }
+
+    // ─── Winget Detection ────────────────────────────────────────
+
+    internal static bool IsWingetManaged() =>
+        (Environment.ProcessPath ?? "").Contains(@"Microsoft\WinGet\Packages", StringComparison.OrdinalIgnoreCase);
 
     // ─── Static Helpers (called from Program.cs) ────────────────
 
