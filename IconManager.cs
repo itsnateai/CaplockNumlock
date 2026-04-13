@@ -67,8 +67,9 @@ internal sealed class IconManager : IDisposable
         using var stream = assembly.GetManifestResourceStream(name + ".ico");
         if (stream == null) return 0;
 
-        // Write to a temp file, then LoadImage for correct sizing
-        string tempPath = Path.Combine(Path.GetTempPath(), $"CapsNumTray_{name}.ico");
+        // Write to a temp file, then LoadImage for correct sizing.
+        // Use random filename to prevent TOCTOU race (predictable path = plantable).
+        string tempPath = Path.Combine(Path.GetTempPath(), $"CapsNumTray_{Guid.NewGuid():N}.ico");
         try
         {
             using (var fs = File.Create(tempPath))
@@ -96,8 +97,9 @@ internal sealed class IconManager : IDisposable
         if (exeDir == null) return 0;
 
         string path = Path.Combine(exeDir, "icons", name + ".ico");
-        if (!File.Exists(path)) return 0;
 
+        // No File.Exists guard — LoadImage returns 0 on missing/inaccessible files,
+        // and adding a check would widen the TOCTOU window for no benefit.
         nint h = NativeMethods.LoadImage(0, path, NativeMethods.IMAGE_ICON,
             _iconSize, _iconSize, NativeMethods.LR_LOADFROMFILE);
         if (h != 0)
