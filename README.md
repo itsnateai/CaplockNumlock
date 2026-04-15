@@ -1,6 +1,6 @@
 # CapsNumTray
 
-*LTR — Long-Term Release. Feature-complete; maintenance-only updates.*
+*LTR — Long-Term Release · one-click self-update built in.*
 
 Caps Lock, Num Lock, and Scroll Lock tray indicators for Windows.
 
