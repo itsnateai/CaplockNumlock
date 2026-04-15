@@ -1,5 +1,7 @@
 # CapsNumTray
 
+*LTR — Long-Term Release. Feature-complete; maintenance-only updates.*
+
 Caps Lock, Num Lock, and Scroll Lock tray indicators for Windows.
 
 A lightweight system tray utility that shows the current state of your lock keys as independent tray icons. Left-click to toggle, right-click for options. Bright icon = ON, dim icon = OFF.
