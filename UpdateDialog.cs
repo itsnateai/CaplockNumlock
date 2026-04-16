@@ -295,8 +295,16 @@ internal sealed class UpdateDialog : Form
             if (!await DownloadFileAsync(_downloadUrl!, newPath))
                 return;
 
-            // Verify SHA256 hash — mandatory when release advertises a SHA256SUMS file
-            if (!string.IsNullOrEmpty(_hashFileUrl))
+            // Verify SHA256 hash — mandatory. If the release has no SHA256SUMS asset,
+            // refuse to install (protects users if CI ever misses the file).
+            if (string.IsNullOrEmpty(_hashFileUrl))
+            {
+                TryDelete(newPath);
+                ShowError("Update failed.",
+                    "This release is missing its integrity checksum — refusing to install.");
+                return;
+            }
+
             {
                 _lblStatus.Text = "Verifying integrity...";
                 string hashContent;

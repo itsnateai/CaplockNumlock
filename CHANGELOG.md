@@ -4,6 +4,12 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.2.5] - 2026-04-16
+
+### Changed
+
+- Auto-updater now refuses to install a release that doesn't publish an integrity checksum alongside it. Previously, a release shipped without its checksum file would have been installed unverified — now it's aborted with a clear message instead.
+
 ## [2.2.4] - 2026-04-16
 
 ### Fixed
