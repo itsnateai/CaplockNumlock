@@ -36,28 +36,25 @@ All notable changes to CapsNumTray are documented here.
 ## [2.0.1] - 2026-03-19
 
 ### Bug Fixes
-- **Form no longer appears above taskbar** — `Application.Run(form)` was forcing the invisible owner form visible as a minimized window. Added `SetVisibleCore` override to suppress visibility while keeping the window handle alive for the message loop.
+- **No stray invisible window above the taskbar at startup** — the tray now launches cleanly with no ghost window hanging around.
 
 ## [2.0.0] - 2026-03-18
 
 ### Added
 - **Full C# (.NET 8 WinForms) port** — complete rewrite from AHK v2 to C#. All features preserved: multi-icon tray, click-to-toggle, context menus, Settings dialog, Help window, OSD tooltips, beep feedback, startup management, dark/light theme detection, per-monitor DPI scaling, 3-stage icon fallback.
-- **Embedded icon resources** — all 9 .ico files embedded directly in the assembly (no external files needed at runtime)
-- **Single-file publish** — `dotnet publish` produces a self-contained single .exe
+- **Embedded icons** — all icons are built into the .exe, so nothing external is needed at runtime.
+- **Single-file build** — ships as one self-contained .exe.
 
 ### Changed
-- **Architecture** — 10 focused C# files replacing single 590-line AHK script: `Program.cs`, `TrayApplication.cs`, `NativeMethods.cs`, `IconManager.cs`, `ConfigManager.cs`, `OsdForm.cs`, `SettingsForm.cs`, `HelpForm.cs`, `StartupManager.cs`
-- **Startup management** — uses Start Menu .lnk shortcut (via WScript.Shell COM) instead of registry Run key
-- **INI format** — fully compatible with existing AHK-generated `.ini` files
+- **Startup management** — "Run at startup" now uses a Start Menu shortcut so Windows' own startup tools can see and manage it.
+- **INI format** — stays fully compatible with existing AHK-generated `.ini` files, so your settings carry over untouched.
 
 ### Fixed
-- 13 audit issues resolved across security, memory leaks, and correctness:
-  - Font/Timer/Process disposal paths verified and corrected
-  - COM objects released in `finally` blocks
-  - `ContextMenuStrip` lifecycle managed correctly (non-blocking `Show()`)
-  - `BeginInvoke` guarded against shutdown race conditions
-  - 64-bit `LParam` safety (`unchecked((int)(long)m.LParam)`)
-  - Icon handle ownership tracking (owned vs shared system handles)
+- **No memory creep over long sessions** — the tray now cleans up after itself properly, so leaving it running for days no longer grows its footprint.
+- **No more rare crash when exiting the app** — shutdown path is now clean even when clicks land mid-exit.
+- **Context menus close cleanly** — right-click menus no longer get stuck visible or block other clicks.
+- **Reliable icon cleanup on exit** — tray icons go away immediately instead of lingering as ghosts until you hover them.
+- **Correct behavior on 64-bit Windows** — click coordinates from the tray are interpreted correctly on all Windows versions.
 
 ## [1.4.1] - 2026-03-13
 
