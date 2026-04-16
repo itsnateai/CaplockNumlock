@@ -73,23 +73,28 @@ internal sealed class ConfigManager
 
     public void Save()
     {
+        string content =
+            "[Visibility]\r\n" +
+            $"ShowCaps={B(ShowCaps)}\r\n" +
+            $"ShowNum={B(ShowNum)}\r\n" +
+            $"ShowScroll={B(ShowScroll)}\r\n" +
+            "\r\n[General]\r\n" +
+            $"ShowOSD={B(ShowOSD)}\r\n" +
+            $"BeepOnToggle={B(BeepOnToggle)}\r\n" +
+            $"PollInterval={PollInterval}\r\n";
+
+        // Atomic save: write to temp then rename. Protects against power loss or
+        // process kill leaving a half-written INI that reverts all settings.
+        string tmpPath = _iniPath + ".tmp";
         try
         {
-            string content =
-                "[Visibility]\r\n" +
-                $"ShowCaps={B(ShowCaps)}\r\n" +
-                $"ShowNum={B(ShowNum)}\r\n" +
-                $"ShowScroll={B(ShowScroll)}\r\n" +
-                "\r\n[General]\r\n" +
-                $"ShowOSD={B(ShowOSD)}\r\n" +
-                $"BeepOnToggle={B(BeepOnToggle)}\r\n" +
-                $"PollInterval={PollInterval}\r\n";
-
-            File.WriteAllText(_iniPath, content, Utf8NoBom);
+            File.WriteAllText(tmpPath, content, Utf8NoBom);
+            File.Move(tmpPath, _iniPath, overwrite: true);
         }
         catch
         {
-            // Silently fail if file is locked
+            // Silently fail if file is locked; best-effort cleanup of temp.
+            try { File.Delete(tmpPath); } catch { }
         }
     }
 
