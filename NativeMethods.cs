@@ -57,7 +57,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern uint GetDpiForSystem();
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "LoadImageW")]
     public static extern nint LoadImage(nint hInst, string name, uint type, int cx, int cy, uint fuLoad);
 
     [DllImport("user32.dll")]
