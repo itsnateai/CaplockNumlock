@@ -75,11 +75,19 @@ internal sealed class TrayApplication : Form
         // Initial sync
         SyncIcons(force: true);
 
-        // Low-level keyboard hook for instant toggle detection
+        // Low-level keyboard hook for instant toggle detection. If install fails
+        // (group policy, some enterprise environments), the polling timer still
+        // keeps icons in sync — just with poll-interval lag instead of instant.
         _hookProc = KeyboardHookCallback;
         _hookHandle = NativeMethods.SetWindowsHookEx(
             NativeMethods.WH_KEYBOARD_LL, _hookProc,
             NativeMethods.GetModuleHandle(null), 0);
+        if (_hookHandle == 0 && _config.PollInterval == 0)
+        {
+            // Hook failed AND polling disabled — icons would never update.
+            // Force-enable polling at a reasonable default so the app stays useful.
+            _config.PollInterval = 10;
+        }
 
         // Polling timer — safety net for external key state changes (RDP, other apps).
         // The keyboard hook handles normal keystrokes instantly.
