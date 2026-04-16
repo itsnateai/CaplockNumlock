@@ -35,11 +35,14 @@ A lightweight system tray utility that shows the current state of your lock keys
 
 Grab **[CapsNumTray.exe](https://github.com/itsnateai/CaplockNumlock/releases/latest)** from the latest release — single file, self-contained, no .NET runtime needed.
 
-### Option 2: WinGet (coming soon)
+### Option 2: WinGet (recommended)
 
 ```powershell
 winget install itsnateai.CapsNumTray
+winget upgrade itsnateai.CapsNumTray   # later, to update
 ```
+
+WinGet installs stay current automatically. The in-app **Update** button detects WinGet installs and points you back at `winget upgrade` instead of trying to overwrite the managed binary.
 
 ### Option 3: Build from source
 
@@ -48,11 +51,17 @@ git clone https://github.com/itsnateai/CaplockNumlock.git
 cd CaplockNumlock
 
 # Framework-dependent (~155KB, requires .NET 8 runtime)
-dotnet publish -c Release
+dotnet publish -c Release -r win-x64
 
-# Self-contained (~150MB, no runtime needed)
+# Self-contained single-file (~147MB, no runtime needed) — matches the release exe
 dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -r win-x64
 ```
+
+Output: `bin/Release/net8.0-windows/win-x64/publish/CapsNumTray.exe`
+
+### Self-update integrity
+
+Releases publish a `SHA256SUMS` file alongside the exe. The in-app **Update** button downloads it, verifies the hash, and fails closed if anything is missing or doesn't match.
 
 ## Customization
 
