@@ -170,8 +170,7 @@ internal sealed class SettingsForm : Form
     {
         if (disposing)
         {
-            _helpForm?.Dispose();
-            _nudPollInterval.Dispose();
+            // Help window owns its own lifecycle once Show()-ed — do not dispose it here.
             _boldFont.Dispose();
             _formFont.Dispose();
         }
