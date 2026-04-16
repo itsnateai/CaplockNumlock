@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -127,7 +128,14 @@ internal sealed class UpdateDialog : Form
     private static HttpClient CreateHttpClient()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        // Bound connection lifetime so DNS changes are picked up on long-running
+        // processes — otherwise the first update check after GitHub's DNS
+        // rotation could fail with a stale pooled connection.
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        };
+        var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(AppName, version));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return client;

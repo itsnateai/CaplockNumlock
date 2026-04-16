@@ -85,7 +85,8 @@ internal sealed class ConfigManager
 
         // Atomic save: write to temp then rename. Protects against power loss or
         // process kill leaving a half-written INI that reverts all settings.
-        string tmpPath = _iniPath + ".tmp";
+        // Unique suffix avoids collision if two Save() calls ever overlap.
+        string tmpPath = $"{_iniPath}.{Guid.NewGuid():N}.tmp";
         try
         {
             File.WriteAllText(tmpPath, content, Utf8NoBom);
