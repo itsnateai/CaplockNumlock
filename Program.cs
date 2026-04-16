@@ -6,7 +6,9 @@ internal static class Program
     static void Main(string[] args)
     {
         // Single-instance: hold mutex for lifetime
-        using var mutex = new Mutex(true, @"Global\CapsNumTray_SingleInstance", out _);
+        using var mutex = new Mutex(true, @"Global\CapsNumTray_SingleInstance", out bool createdNew);
+        if (!createdNew)
+            return;
 
         bool isAfterUpdate = args.Contains("--after-update");
         UpdateDialog.CleanupUpdateArtifacts();
