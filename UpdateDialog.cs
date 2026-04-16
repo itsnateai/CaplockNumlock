@@ -287,49 +287,52 @@ internal sealed class UpdateDialog : Form
             if (!await DownloadFileAsync(_downloadUrl!, newPath))
                 return;
 
-            // Verify SHA256 hash if the release includes a SHA256SUMS file
+            // Verify SHA256 hash — mandatory when release advertises a SHA256SUMS file
             if (!string.IsNullOrEmpty(_hashFileUrl))
             {
                 _lblStatus.Text = "Verifying integrity...";
+                string hashContent;
                 try
                 {
-                    var hashContent = await _http.GetStringAsync(_hashFileUrl, _cts!.Token);
-                    string? expectedHash = null;
-                    foreach (var line in hashContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        // Format: "hexhash  filename" or "hexhash *filename"
-                        var parts = line.Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length == 2 &&
-                            parts[1].Trim().TrimStart('*').Equals("CapsNumTray.exe", StringComparison.OrdinalIgnoreCase))
-                        {
-                            expectedHash = parts[0].Trim();
-                            break;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(expectedHash))
-                    {
-                        var actualHash = ComputeFileHash(newPath);
-                        if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
-                        {
-                            TryDelete(newPath);
-                            ShowError("Hash verification failed.",
-                                "The downloaded file doesn't match the expected SHA256 checksum.");
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        TryDelete(newPath);
-                        ShowError("Hash verification failed.",
-                            "SHA256SUMS file found but contains no entry for CapsNumTray.exe.");
-                        return;
-                    }
+                    hashContent = await _http.GetStringAsync(_hashFileUrl, _cts!.Token);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch
                 {
-                    // SHA256SUMS fetch failed — defense-in-depth, proceed without verification
+                    TryDelete(newPath);
+                    ShowError("Hash verification failed.",
+                        "Could not download SHA256SUMS to verify the update.");
+                    return;
+                }
+
+                string? expectedHash = null;
+                foreach (var line in hashContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    // Format: "hexhash  filename" or "hexhash *filename"
+                    var parts = line.Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length == 2 &&
+                        parts[1].Trim().TrimStart('*').Equals("CapsNumTray.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        expectedHash = parts[0].Trim();
+                        break;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(expectedHash))
+                {
+                    TryDelete(newPath);
+                    ShowError("Hash verification failed.",
+                        "SHA256SUMS file found but contains no entry for CapsNumTray.exe.");
+                    return;
+                }
+
+                var actualHash = ComputeFileHash(newPath);
+                if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    TryDelete(newPath);
+                    ShowError("Hash verification failed.",
+                        "The downloaded file doesn't match the expected SHA256 checksum.");
+                    return;
                 }
             }
 
