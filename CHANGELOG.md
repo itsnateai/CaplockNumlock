@@ -4,6 +4,20 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.2.4] - 2026-04-16
+
+### Fixed
+- **Duplicate trays if launched twice** — second launch now exits cleanly instead of spawning another tray that fought the first one over the same icons.
+- **Self-update relaunch reliability** — new version now waits briefly for the old one to release before giving up, so updates don't strand you with nothing running.
+- **Settings no longer closes your open Help window** — Help window now stays put when you click OK or Cancel on Settings.
+- **Settings survive a sudden power loss** — preferences are written atomically, so an unexpected shutdown mid-save can't blank your config.
+- **Icons load correctly for users with accented characters in their Windows username** — fixed a path-handling bug that silently fell back to generic Windows icons in that case.
+- **Polling auto-enables if the keyboard hook is blocked** — in enterprise environments where low-level hooks are disallowed, the tray now falls back to a 10-second poll instead of silently going stale.
+- **Update integrity check is now strict** — if the checksum file can't be fetched, the update is aborted instead of proceeding unverified.
+
+### Changed
+- Update checker now rotates its connection every 5 minutes so long-running sessions pick up GitHub DNS changes automatically.
+
 ## [2.1.0] - 2026-03-31
 
 ### Added
