@@ -119,7 +119,7 @@ internal sealed class TrayApplication : Form
 
     private nint KeyboardHookCallback(int nCode, nint wParam, nint lParam)
     {
-        if (nCode >= 0)
+        if (nCode >= 0 && !_disposed && IsHandleCreated)
         {
             int vkCode = Marshal.ReadInt32(lParam);
             if (vkCode == NativeMethods.VK_CAPITAL ||
