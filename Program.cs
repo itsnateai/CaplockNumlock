@@ -21,9 +21,13 @@ internal static class Program
             {
                 mutex = new Mutex(true, @"Local\CapsNumTray_SingleInstance", out createdNew);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception ex) when (
+                ex is UnauthorizedAccessException     // restricted DACL / Session 0 / AppContainer
+                or WaitHandleCannotBeOpenedException  // name collision with a different kernel object
+                or IOException)                       // generic Win32 error leak from the ctor
             {
-                // Session 0 / AppContainer / restricted DACL — decline gracefully.
+                // Any of these mean we cannot claim the single-instance lock.
+                // Declining is safer than crashing with an unhandled exception.
                 return;
             }
             if (createdNew || remainingRetries-- <= 0) break;

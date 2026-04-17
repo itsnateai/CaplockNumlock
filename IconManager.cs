@@ -13,11 +13,11 @@ internal sealed class IconManager : IDisposable
     private bool _disposed;
 
     public nint CapsOn { get; }
-    public nint CapsOff { get; }
+    public nint CapsOff { get; private set; }
     public nint NumOn { get; }
-    public nint NumOff { get; }
+    public nint NumOff { get; private set; }
     public nint ScrollOn { get; }
-    public nint ScrollOff { get; }
+    public nint ScrollOff { get; private set; }
 
     public IconManager(nint windowHandle, bool lightTheme)
     {
@@ -29,6 +29,24 @@ internal sealed class IconManager : IDisposable
         NumOff = LoadIcon(lightTheme ? "NumLockOff_Light" : "NumLockOff", 32515);
         ScrollOn = LoadIcon("ScrollLockOn", 32516);
         ScrollOff = LoadIcon(lightTheme ? "ScrollLockOff_Light" : "ScrollLockOff", 32515);
+    }
+
+    // Reload the theme-dependent OFF icons when the system theme flips
+    // between light and dark at runtime. ON icons are theme-independent.
+    public void ReloadForTheme(bool lightTheme)
+    {
+        DisposeIfOwned(CapsOff);
+        DisposeIfOwned(NumOff);
+        DisposeIfOwned(ScrollOff);
+        CapsOff = LoadIcon(lightTheme ? "CapsLockOff_Light" : "CapsLockOff", 32515);
+        NumOff = LoadIcon(lightTheme ? "NumLockOff_Light" : "NumLockOff", 32515);
+        ScrollOff = LoadIcon(lightTheme ? "ScrollLockOff_Light" : "ScrollLockOff", 32515);
+    }
+
+    private void DisposeIfOwned(nint h)
+    {
+        if (_ownedHandles.Remove(h))
+            NativeMethods.DestroyIcon(h);
     }
 
     private static int GetDpiAwareIconSize(nint windowHandle)

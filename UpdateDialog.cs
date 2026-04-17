@@ -134,6 +134,11 @@ internal sealed class UpdateDialog : Form
         var handler = new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            // Defensive: if GitHub ever serves gzipped release assets, the hash
+            // would be computed over the compressed bytes and verification
+            // would fail with a confusing "checksum mismatch". Let the handler
+            // transparently decompress so we hash the real content.
+            AutomaticDecompression = System.Net.DecompressionMethods.All,
         };
         var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(AppName, version));
@@ -285,8 +290,13 @@ internal sealed class UpdateDialog : Form
 
         try
         {
+            // GitHub issues release-asset URLs as github.com/<owner>/<repo>/...
+            // which redirect to the CDN (*.githubusercontent.com). HttpClient
+            // follows redirects transparently, so validating the initial URL
+            // is sufficient to bind the download to our repo.
             if (!_downloadUrl!.StartsWith("https://github.com/itsnateai/", StringComparison.OrdinalIgnoreCase) &&
-                !_downloadUrl.StartsWith("https://objects.githubusercontent.com/", StringComparison.OrdinalIgnoreCase))
+                !_downloadUrl.EndsWith(".githubusercontent.com", StringComparison.OrdinalIgnoreCase) &&
+                !_downloadUrl.Contains(".githubusercontent.com/", StringComparison.OrdinalIgnoreCase))
             {
                 ShowError("Update failed: download URL is not from the expected source.");
                 return;

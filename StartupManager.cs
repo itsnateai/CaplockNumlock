@@ -83,9 +83,13 @@ internal static class StartupManager
             sc.WorkingDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? "";
             sc.Save();
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently fail if COM not available
+            // Folder Redirection GPO can make the Startup folder read-only
+            // (or invisible). Log so DebugView users can diagnose why their
+            // "Run at startup" setting didn't take.
+            System.Diagnostics.Trace.WriteLine(
+                $"CapsNumTray: CreateShortcut failed ({ex.GetType().Name}: {ex.Message})");
         }
         finally
         {

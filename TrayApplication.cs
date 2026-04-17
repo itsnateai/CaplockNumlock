@@ -36,7 +36,11 @@ internal sealed class TrayApplication : Form
     private static readonly string ScrollOn = "Scroll Lock: ON";
     private static readonly string ScrollOff = "Scroll Lock: OFF";
 
-    private bool _disposed;
+    // _disposed is read from the SystemEvents background thread before
+    // BeginInvoke-ing to the UI thread. Mark volatile so the write from
+    // Dispose is observable on ARM64 without relying on x86/x64's stronger
+    // memory model.
+    private volatile bool _disposed;
     private bool _cleanedUp;
     private bool _syncing;
 
@@ -106,6 +110,24 @@ internal sealed class TrayApplication : Form
         // RDP reconnect syncs keyboard state server-side). Force a resync.
         Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
         Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+    }
+
+    private void OnUserPreferenceChanged(object? sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        // General covers theme (light/dark taskbar) and high-contrast changes.
+        if (e.Category != Microsoft.Win32.UserPreferenceCategory.General) return;
+        if (_disposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                _icons.ReloadForTheme(DetectLightTheme());
+                SyncIcons(force: true);
+            });
+        }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
     }
 
     private void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
@@ -608,6 +630,7 @@ internal sealed class TrayApplication : Form
         // handlers and would keep the form alive past disposal otherwise.
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
 
         if (_hookHandle != 0)
         {

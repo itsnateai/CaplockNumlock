@@ -4,7 +4,25 @@
 
 All notable changes to CapsNumTray are documented here.
 
-## [2.2.7] - 2026-04-17 — New LTR
+## [2.2.8] - 2026-04-17 — New LTR
+
+*Second hardening pass from a fresh four-agent red-team audit focused on enterprise / Microsoft Store / WinGet scenarios.*
+
+### Fixed
+- **Tray icons now refresh when you change your Windows theme.** Switching light/dark taskbar themes (or toggling high-contrast) while the tray is running used to leave the OFF icons looking wrong until you restarted the app. They now update live.
+- **Startup lock is more resilient.** If another running program in your session happens to own a kernel object with the same name, the tray now declines gracefully instead of crashing at launch.
+- **"Run at startup" logs a diagnostic line if your system blocks the shortcut folder** (Folder Redirection GPO, read-only share). Previously it silently did nothing.
+
+### Changed
+- **Self-update is more tolerant of GitHub's CDN changes.** The download source check now accepts any `*.githubusercontent.com` host, so future GitHub redirect changes won't break updates.
+- **Self-update handles gzipped asset downloads.** Defensive: the HTTP client now transparently decompresses, so if GitHub ever switches to compressed binaries the integrity check still sees the real content.
+
+### Known limitations
+- **The published binary is not yet Authenticode-signed.** Corporate environments enforcing WDAC / strict SmartScreen / AppLocker Publisher rules will block it. Signing is tracked as the next priority.
+
+Supersedes v2.2.7 as the current long-term release.
+
+## [2.2.7] - 2026-04-17
 
 *Hardening release from a four-agent red-team audit. Same toggle fix as v2.2.6, plus the issues the audit surfaced under the "what else got missed?" lens.*
 
