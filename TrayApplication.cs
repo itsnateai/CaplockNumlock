@@ -387,37 +387,29 @@ internal sealed class TrayApplication : Form
         header.Enabled = false;
         menu.Items.Add(new ToolStripSeparator());
 
-        // Toggle item for clicked icon
+        // Top state line — per-icon
         switch (iconId)
         {
             case ID_CAPS:
-            {
-                bool on = IsKeyToggled(NativeMethods.VK_CAPITAL);
-                AddStateItem(menu, "Caps Lock is ", on, (_, _) => ToggleCapsLock());
-                menu.Items.Add(new ToolStripSeparator());
-                AddVisibilityItem(menu, ID_NUM, "Num Lock", "Num", _config.ShowNum);
-                AddVisibilityItem(menu, ID_SCROLL, "Scroll Lock", "Scroll", _config.ShowScroll);
+                AddStateItem(menu, "Caps Lock is ", IsKeyToggled(NativeMethods.VK_CAPITAL),
+                    (_, _) => ToggleCapsLock());
                 break;
-            }
             case ID_NUM:
-            {
-                bool on = IsKeyToggled(NativeMethods.VK_NUMLOCK);
-                AddStateItem(menu, "Num Lock is ", on, (_, _) => ToggleNumLock());
-                menu.Items.Add(new ToolStripSeparator());
-                AddVisibilityItem(menu, ID_CAPS, "Caps Lock", "Caps", _config.ShowCaps);
-                AddVisibilityItem(menu, ID_SCROLL, "Scroll Lock", "Scroll", _config.ShowScroll);
+                AddStateItem(menu, "Num Lock is ", IsKeyToggled(NativeMethods.VK_NUMLOCK),
+                    (_, _) => ToggleNumLock());
                 break;
-            }
             case ID_SCROLL:
-            {
-                bool on = IsKeyToggled(NativeMethods.VK_SCROLL);
-                AddStateItem(menu, "Scroll Lock is ", on, (_, _) => ToggleScrollLock());
-                menu.Items.Add(new ToolStripSeparator());
-                AddVisibilityItem(menu, ID_CAPS, "Caps Lock", "Caps", _config.ShowCaps);
-                AddVisibilityItem(menu, ID_NUM, "Num Lock", "Num", _config.ShowNum);
+                AddStateItem(menu, "Scroll Lock is ", IsKeyToggled(NativeMethods.VK_SCROLL),
+                    (_, _) => ToggleScrollLock());
                 break;
-            }
         }
+
+        // Shared Visibility submenu — same contents regardless of which icon was clicked
+        menu.Items.Add(new ToolStripSeparator());
+        var visMenu = (ToolStripMenuItem)menu.Items.Add("Visibility");
+        AddCheckItem(visMenu, ID_CAPS,   "Caps Lock",   _config.ShowCaps);
+        AddCheckItem(visMenu, ID_NUM,    "Num Lock",    _config.ShowNum);
+        AddCheckItem(visMenu, ID_SCROLL, "Scroll Lock", _config.ShowScroll);
 
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Settings...", null, (_, _) => ShowSettingsDialog());
@@ -437,12 +429,11 @@ internal sealed class TrayApplication : Form
         item.Font = _menuRenderer.GetBold(menu.Font); // reserve bold width for AutoSize
     }
 
-    private void AddVisibilityItem(ContextMenuStrip menu, uint id, string name, string boldWord, bool currentlyVisible)
+    private void AddCheckItem(ToolStripMenuItem parent, uint id, string label, bool visible)
     {
-        string label = (currentlyVisible ? "Hide " : "Show ") + name + " icon";
-        var item = menu.Items.Add(label, null, (_, _) => SetIconVisible(id, !currentlyVisible));
-        item.Tag = boldWord;
-        item.Font = _menuRenderer.GetBold(menu.Font);
+        var item = new ToolStripMenuItem(label) { Checked = visible };
+        item.Click += (_, _) => SetIconVisible(id, !visible);
+        parent.DropDownItems.Add(item);
     }
 
     // ── Settings Dialog ────────────────────────────────────────────────────
