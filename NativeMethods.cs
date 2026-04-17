@@ -44,11 +44,11 @@ internal static class NativeMethods
 
     public delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
 
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATAW lpData);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern uint RegisterWindowMessage(string lpString);
 
     [DllImport("user32.dll")]

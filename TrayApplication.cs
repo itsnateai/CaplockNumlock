@@ -66,8 +66,13 @@ internal sealed class TrayApplication : Form
         // Icons
         _icons = new IconManager(Handle, lightTheme);
 
-        // Register TaskbarCreated message
+        // Register TaskbarCreated message. Windows guarantees non-zero for any
+        // non-empty string, so a 0 return indicates a system failure worth
+        // tracing — and would alias WM_NULL in WndProc, causing tray churn.
         _wmTaskbarCreated = NativeMethods.RegisterWindowMessage("TaskbarCreated");
+        if (_wmTaskbarCreated == 0)
+            System.Diagnostics.Trace.WriteLine(
+                $"CapsNumTray: RegisterWindowMessage(TaskbarCreated) returned 0 (err={Marshal.GetLastWin32Error()})");
 
         // Add visible tray icons
         if (_config.ShowCaps) TrayAdd(ID_CAPS);
@@ -95,6 +100,35 @@ internal sealed class TrayApplication : Form
         // The keyboard hook handles normal keystrokes instantly.
         _syncTimer = new System.Windows.Forms.Timer();
         ApplyPollInterval(_config.PollInterval);
+
+        // Resume-from-suspend and session unlock can desync our cached state
+        // (BIOS may toggle Caps LED on resume without generating WM_KEYUP;
+        // RDP reconnect syncs keyboard state server-side). Force a resync.
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+    }
+
+    private void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        // Fires on a non-UI thread — marshal back before touching icons.
+        if (e.Mode != Microsoft.Win32.PowerModes.Resume) return;
+        SafeForceSync();
+    }
+
+    private void OnSessionSwitch(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)
+    {
+        if (e.Reason != Microsoft.Win32.SessionSwitchReason.SessionUnlock &&
+            e.Reason != Microsoft.Win32.SessionSwitchReason.ConsoleConnect &&
+            e.Reason != Microsoft.Win32.SessionSwitchReason.RemoteConnect) return;
+        SafeForceSync();
+    }
+
+    private void SafeForceSync()
+    {
+        if (_disposed || !IsHandleCreated) return;
+        try { BeginInvoke(() => SyncIcons(force: true)); }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
     }
 
     private static bool DetectLightTheme()
@@ -489,6 +523,19 @@ internal sealed class TrayApplication : Form
 
     // ── Shell_NotifyIconW Wrappers ─────────────────────────────────────────
 
+    // Wraps Shell_NotifyIconW with failure logging. NIM_MODIFY / NIM_DELETE on
+    // a stale iconID (e.g. after an Explorer crash and before TaskbarCreated
+    // fires) return false with E_FAIL silently — the kind of landmine that
+    // hid the SendInput bug. Log at Trace level for future diagnosis.
+    private static bool ShellNotify(uint msg, ref NativeMethods.NOTIFYICONDATAW nid, string op)
+    {
+        bool ok = NativeMethods.Shell_NotifyIconW(msg, ref nid);
+        if (!ok)
+            System.Diagnostics.Trace.WriteLine(
+                $"CapsNumTray: Shell_NotifyIconW {op} id={nid.uID} failed (err=0x{Marshal.GetLastWin32Error():X8})");
+        return ok;
+    }
+
     private void TrayAdd(uint id)
     {
         var nid = new NativeMethods.NOTIFYICONDATAW
@@ -503,11 +550,11 @@ internal sealed class TrayApplication : Form
             szInfoTitle = "",
         };
 
-        if (NativeMethods.Shell_NotifyIconW(NativeMethods.NIM_ADD, ref nid))
+        if (ShellNotify(NativeMethods.NIM_ADD, ref nid, "NIM_ADD"))
         {
-            // Set NOTIFYICON_VERSION_4
+            // Upgrade to v4 protocol (required for the lParam encoding in WndProc).
             nid.uVersion = NativeMethods.NOTIFYICON_VERSION_4;
-            NativeMethods.Shell_NotifyIconW(NativeMethods.NIM_SETVERSION, ref nid);
+            ShellNotify(NativeMethods.NIM_SETVERSION, ref nid, "NIM_SETVERSION");
         }
     }
 
@@ -525,7 +572,7 @@ internal sealed class TrayApplication : Form
             szInfo = "",
             szInfoTitle = "",
         };
-        NativeMethods.Shell_NotifyIconW(NativeMethods.NIM_MODIFY, ref nid);
+        ShellNotify(NativeMethods.NIM_MODIFY, ref nid, "NIM_MODIFY");
     }
 
     private void TrayRemove(uint id)
@@ -539,7 +586,7 @@ internal sealed class TrayApplication : Form
             szInfo = "",
             szInfoTitle = "",
         };
-        NativeMethods.Shell_NotifyIconW(NativeMethods.NIM_DELETE, ref nid);
+        ShellNotify(NativeMethods.NIM_DELETE, ref nid, "NIM_DELETE");
     }
 
     // ── Exit & Cleanup ─────────────────────────────────────────────────────
@@ -556,6 +603,11 @@ internal sealed class TrayApplication : Form
         _cleanedUp = true;
 
         _syncTimer.Stop();
+
+        // Unsubscribe from SystemEvents — these hold a strong ref to our
+        // handlers and would keep the form alive past disposal otherwise.
+        Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
 
         if (_hookHandle != 0)
         {

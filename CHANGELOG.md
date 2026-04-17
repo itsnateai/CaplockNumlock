@@ -4,7 +4,22 @@
 
 All notable changes to CapsNumTray are documented here.
 
-## [2.2.6] - 2026-04-16 — New LTR
+## [2.2.7] - 2026-04-17 — New LTR
+
+*Hardening release from a four-agent red-team audit. Same toggle fix as v2.2.6, plus the issues the audit surfaced under the "what else got missed?" lens.*
+
+### Fixed
+- **Tray icons now resync on resume-from-sleep and RDP reconnect.** Previously, if your laptop slept with Caps Lock on and resumed with it off (BIOS-toggled), the tray icon could show the wrong state until the next keypress. Same for RDP reconnects that sync keyboard state server-side.
+- **Launching on a multi-user machine (RDS / fast user switching) no longer fails silently for the second user.** The single-instance lock is now scoped per-session, so one user can't block another from running the tray.
+- **Graceful decline in restricted runtimes.** If the single-instance lock can't be acquired due to an OS-level permission error (Session 0, AppContainer), the app exits cleanly instead of crashing.
+
+### Changed
+- **Tray API failures now leave a diagnostic trace.** If Windows ever silently rejects a tray-icon update (e.g., during an Explorer crash), the failure is logged (visible in DebugView) instead of leaving a stale icon with no clue why.
+- **Release workflow actions are now SHA-pinned** (`actions/checkout`, `actions/setup-dotnet`) so a hypothetical upstream tag move can't alter what we publish.
+
+Supersedes v2.2.6 as the current long-term release.
+
+## [2.2.6] - 2026-04-16
 
 ### Fixed
 - **Left-click and right-click menu now actually toggle the lock key.** Since the C# port shipped, clicking a tray icon or picking "click to turn On/Off" from the menu silently did nothing. Both routes now flip Caps Lock, Num Lock, and Scroll Lock as intended. Supersedes the v2.2.4 LTR designation — this is the new long-term release.
