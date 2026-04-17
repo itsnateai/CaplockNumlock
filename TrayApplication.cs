@@ -40,6 +40,8 @@ internal sealed class TrayApplication : Form
     private bool _cleanedUp;
     private bool _syncing;
 
+    private readonly BoldSegmentRenderer _menuRenderer = new();
+
     // Cache struct size — Marshal.SizeOf uses reflection internally
     private static readonly uint NidSize = (uint)Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>();
 
@@ -358,7 +360,7 @@ internal sealed class TrayApplication : Form
         }
 
         var menu = new ContextMenuStrip();
-        menu.RenderMode = ToolStripRenderMode.System;
+        menu.Renderer = _menuRenderer;
 
         // Auto-dispose when menu closes
         menu.Closed += (_, _) =>
@@ -391,31 +393,28 @@ internal sealed class TrayApplication : Form
             case ID_CAPS:
             {
                 bool on = IsKeyToggled(NativeMethods.VK_CAPITAL);
-                menu.Items.Add("Caps Lock is " + (on ? "ON" : "OFF"),
-                    null, (_, _) => ToggleCapsLock());
+                AddStateItem(menu, "Caps Lock is ", on, (_, _) => ToggleCapsLock());
                 menu.Items.Add(new ToolStripSeparator());
-                AddVisibilityItem(menu, ID_NUM, "Num Lock", _config.ShowNum);
-                AddVisibilityItem(menu, ID_SCROLL, "Scroll Lock", _config.ShowScroll);
+                AddVisibilityItem(menu, ID_NUM, "Num Lock", "Num", _config.ShowNum);
+                AddVisibilityItem(menu, ID_SCROLL, "Scroll Lock", "Scroll", _config.ShowScroll);
                 break;
             }
             case ID_NUM:
             {
                 bool on = IsKeyToggled(NativeMethods.VK_NUMLOCK);
-                menu.Items.Add("Num Lock is " + (on ? "ON" : "OFF"),
-                    null, (_, _) => ToggleNumLock());
+                AddStateItem(menu, "Num Lock is ", on, (_, _) => ToggleNumLock());
                 menu.Items.Add(new ToolStripSeparator());
-                AddVisibilityItem(menu, ID_CAPS, "Caps Lock", _config.ShowCaps);
-                AddVisibilityItem(menu, ID_SCROLL, "Scroll Lock", _config.ShowScroll);
+                AddVisibilityItem(menu, ID_CAPS, "Caps Lock", "Caps", _config.ShowCaps);
+                AddVisibilityItem(menu, ID_SCROLL, "Scroll Lock", "Scroll", _config.ShowScroll);
                 break;
             }
             case ID_SCROLL:
             {
                 bool on = IsKeyToggled(NativeMethods.VK_SCROLL);
-                menu.Items.Add("Scroll Lock is " + (on ? "ON" : "OFF"),
-                    null, (_, _) => ToggleScrollLock());
+                AddStateItem(menu, "Scroll Lock is ", on, (_, _) => ToggleScrollLock());
                 menu.Items.Add(new ToolStripSeparator());
-                AddVisibilityItem(menu, ID_CAPS, "Caps Lock", _config.ShowCaps);
-                AddVisibilityItem(menu, ID_NUM, "Num Lock", _config.ShowNum);
+                AddVisibilityItem(menu, ID_CAPS, "Caps Lock", "Caps", _config.ShowCaps);
+                AddVisibilityItem(menu, ID_NUM, "Num Lock", "Num", _config.ShowNum);
                 break;
             }
         }
@@ -430,10 +429,20 @@ internal sealed class TrayApplication : Form
         menu.Show(x, y);
     }
 
-    private void AddVisibilityItem(ContextMenuStrip menu, uint id, string name, bool currentlyVisible)
+    private void AddStateItem(ContextMenuStrip menu, string prefix, bool on, EventHandler handler)
+    {
+        string stateWord = on ? "ON" : "OFF";
+        var item = menu.Items.Add(prefix + stateWord, null, handler);
+        item.Tag = stateWord;                       // bold segment for the renderer
+        item.Font = _menuRenderer.GetBold(menu.Font); // reserve bold width for AutoSize
+    }
+
+    private void AddVisibilityItem(ContextMenuStrip menu, uint id, string name, string boldWord, bool currentlyVisible)
     {
         string label = (currentlyVisible ? "Hide " : "Show ") + name + " icon";
-        menu.Items.Add(label, null, (_, _) => SetIconVisible(id, !currentlyVisible));
+        var item = menu.Items.Add(label, null, (_, _) => SetIconVisible(id, !currentlyVisible));
+        item.Tag = boldWord;
+        item.Font = _menuRenderer.GetBold(menu.Font);
     }
 
     // ── Settings Dialog ────────────────────────────────────────────────────
@@ -580,7 +589,78 @@ internal sealed class TrayApplication : Form
             _contextMenu?.Dispose();
             _settingsForm?.Dispose();
             _icons.Dispose();
+            _menuRenderer.Dispose();
         }
         base.Dispose(disposing);
+    }
+}
+
+// Custom context-menu renderer that bolds one substring inside an item's text.
+// Item.Tag carries the substring to bold; items without a Tag use base rendering.
+internal sealed class BoldSegmentRenderer : ToolStripSystemRenderer, IDisposable
+{
+    private Font? _bold;
+    private Font? _boldBase;
+
+    public Font GetBold(System.Drawing.Font baseFont)
+    {
+        if (_bold == null || !ReferenceEquals(_boldBase, baseFont))
+        {
+            _bold?.Dispose();
+            _boldBase = baseFont;
+            _bold = new Font(baseFont, FontStyle.Bold);
+        }
+        return _bold;
+    }
+
+    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+    {
+        if (e.Item.Tag is not string boldWord || boldWord.Length == 0)
+        {
+            base.OnRenderItemText(e);
+            return;
+        }
+        string text = e.Text ?? "";
+        int idx = text.IndexOf(boldWord, StringComparison.Ordinal);
+        if (idx < 0)
+        {
+            base.OnRenderItemText(e);
+            return;
+        }
+
+        Font regular = e.ToolStrip!.Font;
+        Font bold = GetBold(regular);
+        Color color = e.TextColor;
+        TextFormatFlags flags =
+            TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
+            TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.NoPadding;
+
+        Rectangle bounds = e.TextRectangle;
+        string pre = text.Substring(0, idx);
+        string mid = text.Substring(idx, boldWord.Length);
+        string post = text.Substring(idx + boldWord.Length);
+
+        int preWidth = pre.Length > 0
+            ? TextRenderer.MeasureText(e.Graphics, pre, regular, bounds.Size, flags).Width
+            : 0;
+        int midWidth = TextRenderer.MeasureText(e.Graphics, mid, bold, bounds.Size, flags).Width;
+
+        if (pre.Length > 0)
+            TextRenderer.DrawText(e.Graphics, pre, regular, bounds, color, flags);
+        var midRect = new Rectangle(bounds.X + preWidth, bounds.Y, bounds.Width - preWidth, bounds.Height);
+        TextRenderer.DrawText(e.Graphics, mid, bold, midRect, color, flags);
+        if (post.Length > 0)
+        {
+            var postRect = new Rectangle(midRect.X + midWidth, bounds.Y,
+                bounds.Width - preWidth - midWidth, bounds.Height);
+            TextRenderer.DrawText(e.Graphics, post, regular, postRect, color, flags);
+        }
+    }
+
+    public void Dispose()
+    {
+        _bold?.Dispose();
+        _bold = null;
+        _boldBase = null;
     }
 }
