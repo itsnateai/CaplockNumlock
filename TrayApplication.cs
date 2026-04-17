@@ -171,7 +171,10 @@ internal sealed class TrayApplication : Form
         inputs[1].type = NativeMethods.INPUT_KEYBOARD;
         inputs[1].u.ki.wVk = vk;
         inputs[1].u.ki.dwFlags = NativeMethods.KEYEVENTF_KEYUP;
-        NativeMethods.SendInput(2, inputs, Marshal.SizeOf<NativeMethods.INPUT>());
+        uint sent = NativeMethods.SendInput(2, inputs, Marshal.SizeOf<NativeMethods.INPUT>());
+        if (sent != 2)
+            System.Diagnostics.Trace.WriteLine(
+                $"CapsNumTray: SendInput rejected (sent={sent}, err={Marshal.GetLastWin32Error()})");
     }
 
     // ── Sync Icons ─────────────────────────────────────────────────────────

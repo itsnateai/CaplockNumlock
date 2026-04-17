@@ -81,10 +81,15 @@ internal static class NativeMethods
         internal INPUTUNION u;
     }
 
+    // Union must size to the largest Win32 INPUT variant (MOUSEINPUT).
+    // Declaring only KEYBDINPUT yields a 32-byte INPUT on x64; Windows
+    // expects 40 and rejects SendInput with ERROR_INVALID_PARAMETER.
     [StructLayout(LayoutKind.Explicit)]
     internal struct INPUTUNION
     {
+        [FieldOffset(0)] internal MOUSEINPUT mi;
         [FieldOffset(0)] internal KEYBDINPUT ki;
+        [FieldOffset(0)] internal HARDWAREINPUT hi;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -95,6 +100,25 @@ internal static class NativeMethods
         internal uint dwFlags;
         internal uint time;
         internal nint dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MOUSEINPUT
+    {
+        internal int dx;
+        internal int dy;
+        internal uint mouseData;
+        internal uint dwFlags;
+        internal uint time;
+        internal nint dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct HARDWAREINPUT
+    {
+        internal uint uMsg;
+        internal ushort wParamL;
+        internal ushort wParamH;
     }
 
     internal const uint INPUT_KEYBOARD = 1;

@@ -4,6 +4,11 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.2.6] - 2026-04-16
+
+### Fixed
+- **Left-click and right-click menu now actually toggle the lock key.** Since the C# port shipped, clicking a tray icon or picking "click to turn On/Off" from the menu silently did nothing — the key injection call was being rejected by Windows. Both routes now flip Caps Lock, Num Lock, and Scroll Lock as intended.
+
 ## [2.2.5] - 2026-04-16
 
 ### Changed
