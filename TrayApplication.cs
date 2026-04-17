@@ -391,8 +391,7 @@ internal sealed class TrayApplication : Form
             case ID_CAPS:
             {
                 bool on = IsKeyToggled(NativeMethods.VK_CAPITAL);
-                menu.Items.Add(
-                    "Caps Lock is " + (on ? "ON  \u2014 click to turn Off" : "OFF \u2014 click to turn On"),
+                menu.Items.Add("Caps Lock is " + (on ? "ON" : "OFF"),
                     null, (_, _) => ToggleCapsLock());
                 menu.Items.Add(new ToolStripSeparator());
                 AddVisibilityItem(menu, ID_NUM, "Num Lock", _config.ShowNum);
@@ -402,8 +401,7 @@ internal sealed class TrayApplication : Form
             case ID_NUM:
             {
                 bool on = IsKeyToggled(NativeMethods.VK_NUMLOCK);
-                menu.Items.Add(
-                    "Num Lock is " + (on ? "ON  \u2014 click to turn Off" : "OFF \u2014 click to turn On"),
+                menu.Items.Add("Num Lock is " + (on ? "ON" : "OFF"),
                     null, (_, _) => ToggleNumLock());
                 menu.Items.Add(new ToolStripSeparator());
                 AddVisibilityItem(menu, ID_CAPS, "Caps Lock", _config.ShowCaps);
@@ -413,8 +411,7 @@ internal sealed class TrayApplication : Form
             case ID_SCROLL:
             {
                 bool on = IsKeyToggled(NativeMethods.VK_SCROLL);
-                menu.Items.Add(
-                    "Scroll Lock is " + (on ? "ON  \u2014 click to turn Off" : "OFF \u2014 click to turn On"),
+                menu.Items.Add("Scroll Lock is " + (on ? "ON" : "OFF"),
                     null, (_, _) => ToggleScrollLock());
                 menu.Items.Add(new ToolStripSeparator());
                 AddVisibilityItem(menu, ID_CAPS, "Caps Lock", _config.ShowCaps);
