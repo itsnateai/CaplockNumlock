@@ -29,11 +29,21 @@ A lightweight system tray utility that shows the current state of your lock keys
 
 - Windows 10/11
 
-## Installation
+<a id="download"></a>
 
-### Option 1: Download
+## Download
 
 Grab **[CapsNumTray.exe](https://github.com/itsnateai/CaplockNumlock/releases/latest)** from the latest release — single file, self-contained, no .NET runtime needed.
+
+### Code signing
+
+CapsNumTray uses the [SignPath Foundation](https://signpath.io/) for free code signing of open-source projects. Signed releases carry an Authenticode signature under the publisher name **itsnateai** and are verified by Windows before execution.
+
+## Installation
+
+### Option 1: Direct download
+
+See [Download](#download) above.
 
 ### Option 2: WinGet (recommended)
 
