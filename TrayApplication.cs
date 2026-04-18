@@ -78,13 +78,25 @@ internal sealed class TrayApplication : Form
             System.Diagnostics.Trace.WriteLine(
                 $"CapsNumTray: RegisterWindowMessage(TaskbarCreated) returned 0 (err={Marshal.GetLastWin32Error()})");
 
-        // Add visible tray icons
+        // Snapshot existing NotifyIconSettings subkeys BEFORE our NIM_ADDs so
+        // TrayIconPromoter can identify the ones Explorer creates for us even
+        // when it ships without ExecutablePath populated (Win11 schema quirk).
+        var trayBaseline = TrayIconPromoter.CaptureBaseline();
+
+        // Add visible tray icons. Each NIM_ADD seeds a non-empty tooltip so
+        // Explorer writes the full NotifyIconSettings schema (see TrayAdd).
         if (_config.ShowCaps) TrayAdd(ID_CAPS);
         if (_config.ShowNum) TrayAdd(ID_NUM);
         if (_config.ShowScroll) TrayAdd(ID_SCROLL);
 
         // Initial sync
         SyncIcons(force: true);
+
+        // Auto-promote our tray icons to visible on Win11 22H2+ (no-op on
+        // Win10 and when the user has explicitly hidden us). 500 ms × 20 =
+        // 10 s cap. See TrayIconPromoter for the two-phase identification
+        // rules and why the timer runs to its full cap for multi-icon apps.
+        StartTrayIconPromotion(trayBaseline);
 
         // Low-level keyboard hook for instant toggle detection. If install fails
         // (group policy, some enterprise environments), the polling timer still
@@ -343,8 +355,15 @@ internal sealed class TrayApplication : Form
 
         if (visible)
         {
+            // Capture baseline BEFORE NIM_ADD so the promoter can identify
+            // the newly-created subkey on Win11, same as cold-boot path.
+            // Without this, toggling Scroll Lock (or any previously-hidden
+            // icon) ON would register the icon but leave it in Win11's
+            // overflow flyout — defeating the auto-show behavior.
+            var toggleBaseline = TrayIconPromoter.CaptureBaseline();
             TrayAdd(id);
             SyncIcons(force: true);
+            StartTrayIconPromotion(toggleBaseline);
         }
         else
         {
@@ -358,11 +377,16 @@ internal sealed class TrayApplication : Form
     {
         if ((uint)m.Msg == _wmTaskbarCreated)
         {
-            // Explorer restarted — re-add all visible icons
+            // Explorer restarted — re-add all visible icons.
+            // Recapture a fresh baseline so the promoter can recover
+            // visibility if the per-icon subkey was externally cleaned
+            // up while we were running (e.g. Settings UI "Remove" entry).
+            var recoveryBaseline = TrayIconPromoter.CaptureBaseline();
             if (_config.ShowCaps) TrayAdd(ID_CAPS);
             if (_config.ShowNum) TrayAdd(ID_NUM);
             if (_config.ShowScroll) TrayAdd(ID_SCROLL);
             SyncIcons(force: true);
+            StartTrayIconPromotion(recoveryBaseline);
             return;
         }
 
@@ -560,14 +584,30 @@ internal sealed class TrayApplication : Form
 
     private void TrayAdd(uint id)
     {
+        // Win11 22H2+: NIM_ADD without NIF_TIP makes Explorer write a sparse
+        // NotifyIconSettings subkey (IconSnapshot only, no ExecutablePath /
+        // InitialTooltip / UID), which breaks the auto-promote helper's
+        // Phase-1 path match. Seed a per-icon human-readable tooltip here
+        // so Explorer writes the full schema; the state-driven tooltip lands
+        // a moment later via NIM_MODIFY in SyncIcons and overwrites it.
+        // The seed also becomes the label shown in Settings → Taskbar →
+        // Other system tray icons.
+        string seedTip = id switch
+        {
+            ID_CAPS => "Caps Lock",
+            ID_NUM => "Num Lock",
+            ID_SCROLL => "Scroll Lock",
+            _ => "CapsNumTray",
+        };
+
         var nid = new NativeMethods.NOTIFYICONDATAW
         {
             cbSize = NidSize,
             hWnd = Handle,
             uID = id,
-            uFlags = NativeMethods.NIF_MESSAGE,
+            uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_TIP,
             uCallbackMessage = NativeMethods.WM_TRAY,
-            szTip = "",
+            szTip = seedTip,
             szInfo = "",
             szInfoTitle = "",
         };
@@ -578,6 +618,39 @@ internal sealed class TrayApplication : Form
             nid.uVersion = NativeMethods.NOTIFYICON_VERSION_4;
             ShellNotify(NativeMethods.NIM_SETVERSION, ref nid, "NIM_SETVERSION");
         }
+    }
+
+    // ── Win11 tray icon auto-promote ───────────────────────────────────────
+
+    /// <summary>
+    /// Poll TrayIconPromoter until it has identified all of our per-icon
+    /// NotifyIconSettings subkeys — 500 ms × 20 attempts = 10 s cap.
+    /// Explorer writes each subkey asynchronously after NIM_ADD; under
+    /// Windows-login load it can take a few seconds. Unlike single-icon
+    /// apps, we don't stop on first identification: with three icons it's
+    /// possible for the first tick to catch one Phase-1 match while the
+    /// other two are still orphans, which would block Phase-2 commit. Run
+    /// the timer to its full cap so later ticks catch the late subkeys.
+    /// TryPromote is idempotent — already-promoted subkeys are no-ops.
+    /// On Win10 the helper returns false immediately; the loop then just
+    /// ticks harmlessly to exhaustion.
+    /// </summary>
+    private void StartTrayIconPromotion(HashSet<string>? baseline)
+    {
+        var promoteTimer = new System.Windows.Forms.Timer { Interval = 500 };
+        int attempts = 0;
+        const int maxAttempts = 20;
+        promoteTimer.Tick += (_, _) =>
+        {
+            attempts++;
+            TrayIconPromoter.TryPromote(Environment.ProcessPath ?? "", baseline);
+            if (attempts >= maxAttempts || _disposed)
+            {
+                promoteTimer.Stop();
+                promoteTimer.Dispose();
+            }
+        };
+        promoteTimer.Start();
     }
 
     private void TrayModify(uint id, nint hIcon, string tip)

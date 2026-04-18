@@ -4,6 +4,17 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.2.9] — 2026-04-18
+
+### Windows 11 tray icon visibility
+- **Tray icons now auto-show in the taskbar on first run on Windows 11.** Previously, Win11 22H2+ hid each new tray icon in the overflow flyout until you went to Settings → Personalization → Taskbar → *Other system tray icons* and flipped the Caps Lock / Num Lock / Scroll Lock toggles on one by one. That's three manual clicks against the whole point of the app. First launch now flips those toggles for you. If you've deliberately turned one of them off yourself, that choice is respected — we never flip a user-set OFF back to ON.
+- **Each tray icon shows up with a clean label in the Windows Settings tray list** ("Caps Lock", "Num Lock", "Scroll Lock") so you can tell them apart at a glance instead of seeing three unlabeled entries.
+- **Tray icons stay visible if Explorer crashes and restarts while the app is running.** The Explorer-restart handler now re-runs the auto-promote logic idempotently, so a mid-session Explorer crash, update, or manual restart doesn't silently drop icons back into overflow.
+
+Sandbox-validated on a cold-boot Win11 25H2 guest: fresh install of `CapsNumTray.exe` → both default icons (Caps + Num) appear in the taskbar within 2 seconds, full registry schema present, labels correct.
+
+Supersedes v2.2.8 as the current long-term release.
+
 ## [2.2.8] - 2026-04-17 — New LTR
 
 *Second hardening pass from a fresh four-agent red-team audit focused on enterprise / Microsoft Store / WinGet scenarios.*
