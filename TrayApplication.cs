@@ -44,6 +44,17 @@ internal sealed class TrayApplication : Form
     private bool _cleanedUp;
     private bool _syncing;
 
+    // Set by ToggleLockKey to a future TickCount. While Environment.TickCount64
+    // < this value, non-forced SyncIcons calls early-return. Purpose: after our
+    // SendInput-generated toggle, the LL keyboard hook fires and posts a
+    // SyncIcons via BeginInvoke — but GetKeyState's toggle bit lags the actual
+    // global flag by a message-pump cycle, so the hook's SyncIcons reads stale
+    // state and reverts the icon we just correctly set. The in-flight window
+    // lets our deterministic TrayModify (from ToggleLockKey) stand.
+    // Not marked volatile — C# disallows volatile on long. Aligned 8-byte
+    // reads/writes are atomic on x64 which is the only platform we target.
+    private long _toggleInFlightUntilTicks;
+
     private readonly BoldSegmentRenderer _menuRenderer = new();
 
     // Cache struct size — Marshal.SizeOf uses reflection internally
@@ -255,6 +266,11 @@ internal sealed class TrayApplication : Form
         // queue, which may dispatch another timer tick or a WndProc that
         // calls SyncIcons again before the previous call completes.
         if (_syncing) return;
+        // Suppress non-forced syncs during the in-flight window after our
+        // own SendInput — otherwise the LL hook's stale GetKeyState read
+        // would revert the icon we just correctly set. Physical user
+        // keypresses outside this window are unaffected.
+        if (!force && Environment.TickCount64 < _toggleInFlightUntilTicks) return;
         _syncing = true;
         try
         {
@@ -295,38 +311,55 @@ internal sealed class TrayApplication : Form
 
     // ── Toggle Lock Keys ───────────────────────────────────────────────────
 
-    private void ToggleCapsLock()
+    // NOTE on the !oldState pattern below:
+    // SendInput's keyup is processed asynchronously by the foreground window's
+    // thread; the global Caps/Num/Scroll toggle flag updates when THAT thread
+    // processes the keyup message. Our tray thread's GetKeyState reads its
+    // own cached view, which lags. If we re-read IsKeyToggled right after
+    // ToggleKey, we often get the PRE-toggle value — making the icon, OSD,
+    // and beep frequency disagree with reality. Instead, capture state first
+    // and compute the known-new-state deterministically. The LL keyboard
+    // hook will fire a reconciling SyncIcons shortly after as a safety net.
+    private void ToggleLockKey(byte vk, uint iconId, string tipOn, string tipOff, nint iconOnHandle, nint iconOffHandle, bool showEnabled, uint freqOn, uint freqOff)
     {
-        ToggleKey(NativeMethods.VK_CAPITAL);
-        bool newState = IsKeyToggled(NativeMethods.VK_CAPITAL);
-        SyncIcons(force: true);
+        // Open the in-flight suppression window BEFORE SendInput so the hook
+        // that fires on the synthetic keyup can see it. 250 ms is generous;
+        // GetKeyState typically reconciles within tens of ms.
+        _toggleInFlightUntilTicks = Environment.TickCount64 + 250;
+
+        bool oldState = IsKeyToggled(vk);
+        ToggleKey(vk);
+        bool newState = !oldState;
+
+        // Drive icon + cached state from the KNOWN new state, not a
+        // re-read of GetKeyState. Bypasses the SendInput race.
+        _statesInitialized = true;
+        switch (vk)
+        {
+            case NativeMethods.VK_CAPITAL:  _lastCapsState   = newState; break;
+            case NativeMethods.VK_NUMLOCK:  _lastNumState    = newState; break;
+            case NativeMethods.VK_SCROLL:   _lastScrollState = newState; break;
+        }
+        if (showEnabled)
+            TrayModify(iconId, newState ? iconOnHandle : iconOffHandle, newState ? tipOn : tipOff);
+
         if (_config.BeepOnToggle)
-            BeepAsync(newState ? 880u : 440u);
+            BeepAsync(newState ? freqOn : freqOff);
         if (_config.ShowOSD)
-            OsdForm.ShowOsd(newState ? CapsOn : CapsOff);
+            OsdForm.ShowOsd(newState ? tipOn : tipOff);
     }
 
-    private void ToggleNumLock()
-    {
-        ToggleKey(NativeMethods.VK_NUMLOCK);
-        bool newState = IsKeyToggled(NativeMethods.VK_NUMLOCK);
-        SyncIcons(force: true);
-        if (_config.BeepOnToggle)
-            BeepAsync(newState ? 1000u : 500u);
-        if (_config.ShowOSD)
-            OsdForm.ShowOsd(newState ? NumOn : NumOff);
-    }
+    private void ToggleCapsLock() =>
+        ToggleLockKey(NativeMethods.VK_CAPITAL, ID_CAPS, CapsOn, CapsOff,
+            _icons.CapsOn, _icons.CapsOff, _config.ShowCaps, 880u, 440u);
 
-    private void ToggleScrollLock()
-    {
-        ToggleKey(NativeMethods.VK_SCROLL);
-        bool newState = IsKeyToggled(NativeMethods.VK_SCROLL);
-        SyncIcons(force: true);
-        if (_config.BeepOnToggle)
-            BeepAsync(newState ? 1100u : 550u);
-        if (_config.ShowOSD)
-            OsdForm.ShowOsd(newState ? ScrollOn : ScrollOff);
-    }
+    private void ToggleNumLock() =>
+        ToggleLockKey(NativeMethods.VK_NUMLOCK, ID_NUM, NumOn, NumOff,
+            _icons.NumOn, _icons.NumOff, _config.ShowNum, 1000u, 500u);
+
+    private void ToggleScrollLock() =>
+        ToggleLockKey(NativeMethods.VK_SCROLL, ID_SCROLL, ScrollOn, ScrollOff,
+            _icons.ScrollOn, _icons.ScrollOff, _config.ShowScroll, 1100u, 550u);
 
     private static void BeepAsync(uint freq) =>
         Task.Run(() => NativeMethods.Beep(freq, 80));
@@ -441,6 +474,9 @@ internal sealed class TrayApplication : Form
 
         var menu = new ContextMenuStrip();
         menu.Renderer = _menuRenderer;
+        // Breathing room around the outside of the menu — without this,
+        // "Exit CapsNumTray" sits jammed against the bottom border.
+        menu.Padding = new Padding(0, 2, 0, 4);
 
         // Auto-dispose when menu closes
         menu.Closed += (_, _) =>

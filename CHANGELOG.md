@@ -4,6 +4,16 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.2.10] — 2026-04-18
+
+### Fixed
+- **Right-click menu "Caps Lock is ON/OFF" now actually toggles cleanly.** Previously, clicking the state item from the right-click menu could leave the tray icon, the notification popup, and the menu label itself out of sync — e.g. the OSD would briefly flash "ON" but the icon would revert to OFF while the menu label ended up saying something different again on next open. Left-click on the tray icon already worked; the bug was specific to the right-click menu path. Same fix also covers Num Lock and Scroll Lock toggle menu items.
+
+### Changed
+- **Bottom padding on the right-click menu.** "Exit CapsNumTray" no longer sits jammed against the bottom edge of the menu — there's now a bit of breathing room on top and bottom for a cleaner look.
+
+Supersedes v2.2.9 as the current long-term release.
+
 ## [2.2.9] — 2026-04-18
 
 ### Windows 11 tray icon visibility
