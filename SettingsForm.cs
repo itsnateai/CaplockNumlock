@@ -36,16 +36,31 @@ internal sealed class SettingsForm : Form
         Font = _formFont;
         _boldFont = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
 
-        int y = 16;
+        const int PollInputX = 320;
 
-        // ── Tray Icons ──
-        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, y), AutoSize = true, Font = _boldFont };
+        int yLeft = 16;
+        int yRight = 16;
+
+        // ── Tray Icons (left column, top) ──
+        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont };
         Controls.Add(lblIcons);
-        y += 26;
+        yLeft += 26;
 
-        _chkCaps = AddCheckBox("Show Caps Lock icon", config.ShowCaps, 28, ref y);
-        _chkNum = AddCheckBox("Show Num Lock icon", config.ShowNum, 28, ref y);
-        _chkScroll = AddCheckBox("Show Scroll Lock icon", config.ShowScroll, 28, ref y);
+        _chkCaps = AddCheckBox("Show Caps Lock icon", config.ShowCaps, 28, ref yLeft);
+        _chkNum = AddCheckBox("Show Num Lock icon", config.ShowNum, 28, ref yLeft);
+        _chkScroll = AddCheckBox("Show Scroll Lock icon", config.ShowScroll, 28, ref yLeft);
+
+        // ── Startup (right column, top) ──
+        const string startupText = "Run at Windows startup";
+        const int StartupHdrX = 210;
+
+        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont };
+        Controls.Add(lblStartup);
+        yRight += 26;
+
+        _chkStartup = AddCheckBox(startupText, StartupManager.IsEnabled, StartupHdrX + 12, ref yRight);
+
+        int y = Math.Max(yLeft, yRight);
 
         // ── Feedback ──
         y += 10;
@@ -69,25 +84,38 @@ internal sealed class SettingsForm : Form
             Minimum = 0,
             Maximum = 300,
             Value = config.PollInterval,
-            Location = new(320, y),
+            Location = new(PollInputX, y),
             Size = new(60, 24),
             Increment = 5,
         };
         Controls.Add(_nudPollInterval);
         y += 28;
 
-        // ── Startup ──
-        y += 10;
-        var lblStartup = new Label { Text = "Startup", Location = new(16, y), AutoSize = true, Font = _boldFont };
-        Controls.Add(lblStartup);
-        y += 26;
-
-        _chkStartup = AddCheckBox("Run at Windows startup", StartupManager.IsEnabled, 28, ref y);
-
-        // ── Buttons ──
+        // ── Buttons (two rows, each row fills horizontally with equal-width buttons) ──
         y += 16;
 
-        var btnGitHub = new Button { Text = "GitHub", Location = new(16, y), Size = new(80, 28) };
+        const int FormWidth = 480;
+        // Equal padding: border|pad|btn|pad|btn|pad|btn|pad|border
+        // 4 * pad + 3 * btnW = FormWidth. With pad=12, btnW=144 → exactly 480.
+        const int BtnPad = 12;
+        const int BtnW = (FormWidth - 4 * BtnPad) / 3; // = 144
+
+        // Primary (bottom) row: full 144×28. Utility (top) row: smaller 120×24 for visual contrast.
+        const int BotBtnH = 28;
+        const int TopBtnW = 120;
+        const int TopBtnH = 24;
+        const int TopBtnOffset = (BtnW - TopBtnW) / 2; // center each small button in its column slot
+
+        int col1X = BtnPad;
+        int col2X = col1X + BtnW + BtnPad;
+        int col3X = col2X + BtnW + BtnPad;
+
+        // Row 1 (top): utility — GitHub, Update, Help (smaller, centered in column slots)
+        int gitHubX = col1X + TopBtnOffset;
+        int updateX = col2X + TopBtnOffset;
+        int helpX   = col3X + TopBtnOffset;
+
+        var btnGitHub = new Button { Text = "GitHub", Location = new(gitHubX, y), Size = new(TopBtnW, TopBtnH) };
         btnGitHub.Click += (_, _) =>
         {
             using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -98,7 +126,7 @@ internal sealed class SettingsForm : Form
         };
         Controls.Add(btnGitHub);
 
-        var btnUpdate = new Button { Text = "Update", Location = new(102, y), Size = new(65, 28) };
+        var btnUpdate = new Button { Text = "Update", Location = new(updateX, y), Size = new(TopBtnW, TopBtnH) };
         btnUpdate.Click += (_, _) =>
         {
             using var dlg = new UpdateDialog();
@@ -106,25 +134,32 @@ internal sealed class SettingsForm : Form
         };
         Controls.Add(btnUpdate);
 
-        var btnHelp = new Button { Text = "Help", Location = new(173, y), Size = new(55, 28) };
+        var btnHelp = new Button { Text = "Help", Location = new(helpX, y), Size = new(TopBtnW, TopBtnH) };
         btnHelp.Click += (_, _) => ShowHelpWindow();
         Controls.Add(btnHelp);
 
-        var btnOK = new Button { Text = "OK", Location = new(240, y), Size = new(70, 28) };
+        // Row 2 (bottom): actions — OK, Apply, Cancel (full-size, primary)
+        y += TopBtnH + BtnPad;
+
+        int okX     = col1X;
+        int applyX  = col2X;
+        int cancelX = col3X;
+
+        var btnOK = new Button { Text = "OK", Location = new(okX, y), Size = new(BtnW, BotBtnH) };
         btnOK.Click += (_, _) => { Apply(); Close(); };
         Controls.Add(btnOK);
         AcceptButton = btnOK;
 
-        var btnApply = new Button { Text = "Apply", Location = new(318, y), Size = new(70, 28) };
+        var btnApply = new Button { Text = "Apply", Location = new(applyX, y), Size = new(BtnW, BotBtnH) };
         btnApply.Click += (_, _) => Apply();
         Controls.Add(btnApply);
 
-        var btnCancel = new Button { Text = "Cancel", Location = new(396, y), Size = new(70, 28) };
+        var btnCancel = new Button { Text = "Cancel", Location = new(cancelX, y), Size = new(BtnW, BotBtnH) };
         btnCancel.Click += (_, _) => Close();
         Controls.Add(btnCancel);
         CancelButton = btnCancel;
 
-        ClientSize = new System.Drawing.Size(480, y + 42);
+        ClientSize = new System.Drawing.Size(FormWidth, y + BotBtnH + 16);
     }
 
     private CheckBox AddCheckBox(string text, bool isChecked, int x, ref int y)
