@@ -10,7 +10,7 @@ All notable changes to CapsNumTray are documented here.
 
 CapsNumTray is now stable. If you're running an older version, open **Settings → Update** and the app will download, verify, and relaunch itself — no manual install, no reboot.
 
-This is the new LTR baseline. Future updates will be audit-driven maintenance only.
+This is the new LTR baseline.
 
 ## [2.2.10] — 2026-04-18
 
