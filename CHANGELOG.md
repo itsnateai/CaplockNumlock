@@ -6,15 +6,17 @@ All notable changes to CapsNumTray are documented here.
 
 ## [2.3.1] — 2026-04-23
 
-Small polish to make the right-click menu look consistent with the rest of the tray-app family: the **CapsNumTray** header is now bold, and Windows 11 menu spacing matches MicMute and MWBToggle.
-
-## [2.3.0] — 2026-04-23
-
 **Battle-tested Long-Term Release.**
 
 CapsNumTray is now stable. If you're running an older version, open **Settings → Update** and the app will download, verify, and relaunch itself — no manual install, no reboot.
 
+Includes a small polish to make the right-click menu consistent with the rest of the tray-app family: the **CapsNumTray** header is now bold, and Windows 11 menu spacing matches MicMute and MWBToggle.
+
 This is the new LTR baseline.
+
+## [2.3.0] — 2026-04-23
+
+Settings dialog refresh: the **Startup** option is now tucked up beside Tray Icons instead of buried at the bottom, and the action row is split into two tidy rows (GitHub/Update/Help above, OK/Apply/Cancel below). The Help window got a typography pass to match MicMute.
 
 ## [2.2.10] — 2026-04-18
 
