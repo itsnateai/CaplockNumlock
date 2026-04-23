@@ -4,6 +4,10 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.3.1] — 2026-04-23
+
+Small polish to make the right-click menu look consistent with the rest of the tray-app family: the **CapsNumTray** header is now bold, and Windows 11 menu spacing matches MicMute and MWBToggle.
+
 ## [2.3.0] — 2026-04-23
 
 **Battle-tested Long-Term Release.**

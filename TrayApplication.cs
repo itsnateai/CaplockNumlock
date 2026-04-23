@@ -474,9 +474,8 @@ internal sealed class TrayApplication : Form
 
         var menu = new ContextMenuStrip();
         menu.Renderer = _menuRenderer;
-        // Breathing room around the outside of the menu — without this,
-        // "Exit CapsNumTray" sits jammed against the bottom border.
-        menu.Padding = new Padding(0, 2, 0, 4);
+        // Gutter stays ON — permanent template rule for all C# tray apps in
+        // this workspace. See _templates/snippets/csharp/tray-app.md.
 
         // Auto-dispose when menu closes
         menu.Closed += (_, _) =>
@@ -498,8 +497,9 @@ internal sealed class TrayApplication : Form
             catch (ObjectDisposedException) { }
         };
 
-        // Version header (disabled)
+        // Version header (disabled, bold — matches MicMute master theme)
         var header = menu.Items.Add("CapsNumTray v" + Version);
+        header.Font = _menuRenderer.GetBold(menu.Font);
         header.Enabled = false;
         menu.Items.Add(new ToolStripSeparator());
 
@@ -772,7 +772,7 @@ internal sealed class TrayApplication : Form
 
 // Custom context-menu renderer that bolds one substring inside an item's text.
 // Item.Tag carries the substring to bold; items without a Tag use base rendering.
-internal sealed class BoldSegmentRenderer : ToolStripSystemRenderer, IDisposable
+internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisposable
 {
     private Font? _bold;
     private Font? _boldBase;
