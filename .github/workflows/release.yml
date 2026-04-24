@@ -26,9 +26,11 @@ jobs:
 
       - name: Update version in csproj
         shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           $csproj = Get-Content CapsNumTray.csproj -Raw
-          $csproj = $csproj -replace '<Version>.*?</Version>', "<Version>${{ steps.version.outputs.VERSION }}</Version>"
+          $csproj = $csproj -replace '<Version>.*?</Version>', "<Version>$env:VERSION</Version>"
           Set-Content CapsNumTray.csproj $csproj
 
       - name: Build self-contained
@@ -43,8 +45,10 @@ jobs:
 
       - name: Extract release notes from CHANGELOG
         shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
+          $version = $env:VERSION
           $content = Get-Content CHANGELOG.md -Raw
           # Capture the body between `## [<version>]` and the next `## [` (or end)
           $escaped = [regex]::Escape($version)
