@@ -140,4 +140,30 @@ public class UpdateDialogAllowlistTests
         Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
             "https://api.github.com@evil.example/repos/itsnateai/CaplockNumlock/releases/latest"));
     }
+
+    [TestMethod]
+    public void HostConfusion_PathTraversalToOtherRepo_Rejected()
+    {
+        // Uri.AbsolutePath normalizes /a/b/../c → /a/c, so the path no longer
+        // starts with /itsnateai/CaplockNumlock/ and the prefix check rejects.
+        // Pin the behavior so a future change to .NET's Uri normalization can't
+        // silently regress this defense.
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://github.com/itsnateai/CaplockNumlock/../EvilRepo/releases/download/v1/x.exe"));
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://api.github.com/repos/itsnateai/CaplockNumlock/../EvilRepo/releases/latest"));
+    }
+
+    [TestMethod]
+    public void HostConfusion_TrailingDotHost_Rejected()
+    {
+        // Uri.Host preserves the trailing dot literally ("github.com." with the
+        // dot, not "github.com"), so the equality check rejects. DNS treats
+        // these as equivalent, so a malicious server could resolve them. Pin
+        // the over-restrictive-but-safe behavior.
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://github.com./itsnateai/CaplockNumlock/releases/download/v1/CapsNumTray.exe"));
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://api.github.com./repos/itsnateai/CaplockNumlock/releases/latest"));
+    }
 }
