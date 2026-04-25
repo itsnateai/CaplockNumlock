@@ -474,8 +474,7 @@ internal sealed class TrayApplication : Form
 
         var menu = new ContextMenuStrip();
         menu.Renderer = _menuRenderer;
-        // Gutter stays ON — permanent template rule for all C# tray apps in
-        // this workspace. See _templates/snippets/csharp/tray-app.md.
+        // Gutter stays ON — context-menu icons read better with the gutter on.
 
         // Auto-dispose when menu closes
         menu.Closed += (_, _) =>
