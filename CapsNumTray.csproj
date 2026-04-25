@@ -12,6 +12,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>CA1416</NoWarn>
+    <!-- Flat-layout repo: CapsNumTray.csproj sits at the root, so the SDK glob
+         would otherwise sweep CapsNumTray.Tests/**/*.cs into this assembly. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);CapsNumTray.Tests/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +27,10 @@
     <EmbeddedResource Include="icons\ScrollLockOn.ico" LogicalName="ScrollLockOn.ico" />
     <EmbeddedResource Include="icons\ScrollLockOff.ico" LogicalName="ScrollLockOff.ico" />
     <EmbeddedResource Include="icons\ScrollLockOff_Light.ico" LogicalName="ScrollLockOff_Light.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CapsNumTray.Tests" />
   </ItemGroup>
 
 </Project>

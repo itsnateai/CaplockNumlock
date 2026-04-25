@@ -292,11 +292,11 @@ internal sealed class UpdateDialog : Form
         {
             // GitHub issues release-asset URLs as github.com/<owner>/<repo>/...
             // which redirect to the CDN (*.githubusercontent.com). HttpClient
-            // follows redirects transparently, so validating the initial URL
-            // is sufficient to bind the download to our repo.
-            if (!_downloadUrl!.StartsWith("https://github.com/itsnateai/", StringComparison.OrdinalIgnoreCase) &&
-                !_downloadUrl.EndsWith(".githubusercontent.com", StringComparison.OrdinalIgnoreCase) &&
-                !_downloadUrl.Contains(".githubusercontent.com/", StringComparison.OrdinalIgnoreCase))
+            // follows redirects transparently to whatever Location: header it
+            // gets back; the allowlist is what binds the download to our repo
+            // for the initial URL. SHA256 verification below is the second
+            // gate against any redirect leading off-list mid-flight.
+            if (!IsAllowedReleaseOrigin(_downloadUrl))
             {
                 ShowError("Update failed: download URL is not from the expected source.");
                 return;
@@ -317,6 +317,13 @@ internal sealed class UpdateDialog : Form
 
             {
                 _lblStatus.Text = "Verifying integrity...";
+                if (!IsAllowedReleaseOrigin(_hashFileUrl))
+                {
+                    TryDelete(newPath);
+                    ShowError("Update failed.",
+                        "SHA256SUMS URL is not from the expected source — refusing to install.");
+                    return;
+                }
                 string hashContent;
                 try
                 {
@@ -485,6 +492,36 @@ internal sealed class UpdateDialog : Form
     }
 
     // ─── Winget Detection ────────────────────────────────────────
+
+    /// <summary>
+    /// Allowlist for self-update URLs. HTTPS-only, explicit host set, and the
+    /// github.com / api.github.com paths must start with our owner/repo prefix.
+    /// Uri.Host comparison defeats `github.com.evil.example`-style suffix
+    /// confusion that a `StartsWith`/`Contains` check would let through.
+    /// </summary>
+    internal static bool IsAllowedReleaseOrigin(string? url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return false;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return false;
+        if (uri.Scheme != Uri.UriSchemeHttps)
+            return false;
+
+        string host = uri.Host;
+        // GitHub release-asset CDNs — both legacy + new edge are seen in the wild.
+        if (host.Equals("objects.githubusercontent.com", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (host.Equals("release-assets.githubusercontent.com", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.StartsWith($"/repos/{GitHubRepo}/", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.StartsWith($"/{GitHubRepo}/", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
 
     internal static bool IsWingetManaged() =>
         (Environment.ProcessPath ?? "").Contains(@"Microsoft\WinGet\Packages", StringComparison.OrdinalIgnoreCase);

@@ -34,6 +34,10 @@ credentials.json
 bin/
 obj/
 .vs/
+TestResults/
+[Tt]est[Rr]esults/
+coverage*.xml
+coverage*.json
 
 # Project config (auto-generated)
 *.ini
