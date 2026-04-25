@@ -4,6 +4,11 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.3.2] — 2026-04-25
+
+### Security
+- **Self-update URL allowlist hardened against host-confusion attacks.** The previous URL check used substring-match on `.githubusercontent.com/` — a hostile redirect target like `https://evil.example/.githubusercontent.com/payload.exe` would have passed the check because the substring appears anywhere in the URL string. The check is now `Uri.Host`-based: the host must exactly match one of the allowed CDN names (`objects.githubusercontent.com` or `release-assets.githubusercontent.com`), and the github.com / api.github.com paths must start with our exact owner/repo prefix. The same gate now also runs on the SHA256SUMS download URL, which previously had no allowlist check at all (relied entirely on hash verification). No visible change for normal updates from GitHub Releases — this only tightens paths that should never have been reached.
+
 ## [2.3.1] — 2026-04-23
 
 **Battle-tested Long-Term Release.**
