@@ -125,4 +125,19 @@ public class UpdateDialogAllowlistTests
         Assert.IsTrue(UpdateDialog.IsAllowedReleaseOrigin(
             "https://github.com/ITSNATEAI/CAPLOCKNUMLOCK/releases/latest"));
     }
+
+    [TestMethod]
+    public void HostConfusion_UserinfoAuthority_Rejected()
+    {
+        // RFC 3986 authority parsing: everything before @ is UserInfo, NOT host.
+        // Uri.Host returns "evil.example", so the equality check fails. The
+        // 2026-04-25 audit black-box probed this — pin the behavior so a
+        // future change to .NET's Uri parser can't silently regress.
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://github.com@evil.example/itsnateai/CaplockNumlock/releases/download/v1/CapsNumTray.exe"));
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://github.com:443@evil.example/itsnateai/CaplockNumlock/releases/download/v1/CapsNumTray.exe"));
+        Assert.IsFalse(UpdateDialog.IsAllowedReleaseOrigin(
+            "https://api.github.com@evil.example/repos/itsnateai/CaplockNumlock/releases/latest"));
+    }
 }
