@@ -6,6 +6,11 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>icons\CapsLockOn.ico</ApplicationIcon>
     <Version>2.3.1</Version>
+    <Description>Tray icons for Caps Lock, Num Lock, and Scroll Lock state</Description>
+    <Product>CapsNumTray</Product>
+    <Company>itsNate</Company>
+    <Authors>itsNate</Authors>
+    <Copyright>Copyright (c) 2026 itsNate</Copyright>
     <AssemblyName>CapsNumTray</AssemblyName>
     <RootNamespace>CapsNumTray</RootNamespace>
     <Nullable>enable</Nullable>
