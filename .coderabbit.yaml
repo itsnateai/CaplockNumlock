@@ -1,0 +1,106 @@
+# CodeRabbit configuration — schema: https://docs.coderabbit.ai/reference/yaml-template
+language: "en-US"
+
+tone_instructions: >-
+  Caps/Num lock state tray indicator using raw Shell_NotifyIconW for multiple
+  independent icons (intentional — NotifyIcon class only supports one). WinForms
+  .NET 8. Focus on GDI handle ownership, hook lifecycle, and disposal correctness.
+
+reviews:
+  profile: "chill"
+  poem: false
+  collapse_walkthrough: true
+  changed_files_summary: true
+  high_level_summary: true
+  sequence_diagrams: false
+  assess_linked_issues: true
+  related_issues: true
+
+  path_filters:
+    - "!bin/**"
+    - "!obj/**"
+    - "!publish/**"
+    - "!**/*.user"
+    - "!**/*.suo"
+    - "!**/*.pdb"
+    - "!*.ico"
+    - "!*.exe"
+    - "!icons/**"
+    - "!screenshots/**"
+    - "!CapsNumTray.ahk"
+    - "!CHANGELOG.md"
+    - "!AUDIT_TASKS.md"
+    - "!TODO_LIST.md"
+    - "!SCHEDULED_TASKS.md"
+    - "!ASSUMPTIONS.md"
+
+  path_instructions:
+    - path: "TrayApplication.cs"
+      instructions: |
+        Core form — uses raw Shell_NotifyIconW P/Invoke (NOT the .NET NotifyIcon
+        class) to manage three independent tray icons (Caps Lock=10, Num Lock=11,
+        Scroll Lock=12). This is INTENTIONAL — NotifyIcon only supports one icon
+        per Form, and we need three. Custom tray callback message: 0x8010.
+        NOTIFYICON_VERSION_4 protocol (lParam = event|iconID, wParam = clickXY).
+
+        Do NOT propose switching to NotifyIcon. Do NOT flag the raw P/Invoke as
+        "should use the .NET wrapper".
+
+        DO flag: missing Shell_NotifyIconW NIM_DELETE on shutdown paths, leaked
+        icon handles (DestroyIcon must be called for owned handles, NOT for
+        system-shared handles — IconManager tracks ownership), and missed
+        TaskbarCreated message handling for explorer-restart recovery.
+    - path: "IconManager.cs"
+      instructions: |
+        Loads icons once at startup, caches handles, tracks ownership. Owned
+        handles get DestroyIcon on Dispose; shared system handles do NOT.
+        Flag any change that conflates ownership (calling DestroyIcon on a shared
+        handle = process-wide icon corruption).
+    - path: "NativeMethods.cs"
+      instructions: |
+        All P/Invoke declarations: Shell_NotifyIconW, keybd_event, GetKeyState,
+        Beep, LoadImage, DestroyIcon, RegisterWindowMessage, DPI APIs, plus the
+        NOTIFYICONDATAW struct. All handles are nint (not IntPtr). All paths
+        use Environment.ProcessPath (not Assembly.Location).
+    - path: "ConfigManager.cs"
+      instructions: |
+        INI reader/writer compatible with the legacy AHK script's INI format.
+        Must gracefully default if file missing or locked. Visibility prefs
+        live in [Visibility] section.
+    - path: "OsdForm.cs"
+      instructions: |
+        Borderless topmost auto-hiding tooltip (replaces Windows BalloonTip).
+        Uses a SHARED STATIC font to avoid GDI leaks across repeated shows —
+        do NOT change to per-show font allocation.
+    - path: "CapsNumTray.Tests/**"
+      instructions: |
+        Test project. Must be deterministic and must not depend on real keyboard
+        state or the tray.
+    - path: "**/*.cs"
+      instructions: |
+        C# / .NET 8 / WinForms. Tray app — WinForms is the chosen UI stack, no
+        NuGet dependencies, no async, no polling timers for file changes (pure
+        single-threaded WinForms). Resource rules (CLAUDE.md): every new Font()
+        and new Timer() must be disposed; Process.GetProcessesByName results
+        must wrap each Process in `using`; ContextMenuStrip must NOT use `using`
+        (Show is non-blocking — store as field, dispose on Closed event).
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    base_branches:
+      - "main"
+
+  tools:
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+
+chat:
+  auto_reply: true
