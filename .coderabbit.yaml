@@ -105,6 +105,9 @@ reviews:
       - "chore: release"
       - "release v"
       - "bump version"
+      - "changelog"
+      - "release notes"
+      - "cut v"
     ignore_usernames:
       - "dependabot[bot]"
       - "release-please[bot]"
