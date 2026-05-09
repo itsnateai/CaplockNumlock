@@ -23,11 +23,10 @@ reviews:
     - "!**/*.user"
     - "!**/*.suo"
     - "!**/*.pdb"
-    - "!*.ico"
-    - "!*.exe"
+    - "!**/*.ico"
+    - "!**/*.exe"
     - "!icons/**"
     - "!screenshots/**"
-    - "!CapsNumTray.ahk"
     - "!CHANGELOG.md"
     - "!AUDIT_TASKS.md"
     - "!TODO_LIST.md"
@@ -54,8 +53,8 @@ reviews:
       instructions: |
         Loads icons once at startup, caches handles, tracks ownership. Owned
         handles get DestroyIcon on Dispose; shared system handles do NOT.
-        Flag any change that conflates ownership (calling DestroyIcon on a shared
-        handle = process-wide icon corruption).
+        Flag any change that conflates ownership (calling DestroyIcon on a
+        shared handle = process-wide icon corruption).
     - path: "NativeMethods.cs"
       instructions: |
         All P/Invoke declarations: Shell_NotifyIconW, keybd_event, GetKeyState,
@@ -72,10 +71,23 @@ reviews:
         Borderless topmost auto-hiding tooltip (replaces Windows BalloonTip).
         Uses a SHARED STATIC font to avoid GDI leaks across repeated shows —
         do NOT change to per-show font allocation.
+    - path: "UpdateDialog.cs"
+      instructions: |
+        Self-update flow. Mirrors MicMute / MWBToggle pattern: SHA256 verification
+        of the downloaded binary, allowlisted release host set, .new → .old
+        rename dance with relaunch + .ok-sentinel-on-startup recovery. Flag any
+        change that broadens the allowlist, skips SHA256 verification, or
+        relaxes the rename-and-sentinel ordering.
+    - path: "StartupManager.cs"
+      instructions: |
+        Startup .lnk shortcut creation via WScript.Shell COM. COM objects must
+        be released via Marshal.ReleaseComObject in try/finally — flag any
+        path that returns without releasing the WScript.Shell or IWshShortcut
+        instance, including exception paths.
     - path: "CapsNumTray.Tests/**"
       instructions: |
-        Test project. Must be deterministic and must not depend on real keyboard
-        state or the tray.
+        Test project. Must be deterministic and must not depend on real
+        keyboard state or the tray.
     - path: "**/*.cs"
       instructions: |
         C# / .NET 8 / WinForms. Tray app — WinForms is the chosen UI stack, no
@@ -89,6 +101,15 @@ reviews:
     enabled: true
     drafts: false
     auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 3
+    ignore_title_keywords:
+      - "chore: release"
+      - "release v"
+      - "bump version"
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "release-please[bot]"
+      - "github-actions[bot]"
     base_branches:
       - "main"
 
@@ -100,6 +121,8 @@ reviews:
     markdownlint:
       enabled: true
     yamllint:
+      enabled: true
+    semgrep:
       enabled: true
 
 chat:
