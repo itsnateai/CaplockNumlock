@@ -5,7 +5,16 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>icons\CapsLockOn.ico</ApplicationIcon>
-    <Version>2.3.1</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- DPI alignment: these properties drive the source-generated
+         ApplicationConfiguration.Initialize() that Program.cs calls. Without
+         ApplicationHighDpiMode the generator emits SetHighDpiMode(SystemAware),
+         which contradicts the manifest's PerMonitorV2 and produces clipped
+         controls on 125%/150% displays. ApplicationDefaultFont sets the
+         ambient font for controls that inherit (control-level Font wins). -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>
+    <Version>2.3.3</Version>
     <Description>Tray icons for Caps Lock, Num Lock, and Scroll Lock state</Description>
     <Product>CapsNumTray</Product>
     <Company>itsNate</Company>

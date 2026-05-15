@@ -72,6 +72,12 @@ Fallback poll interval: Controls how often the app checks key states independent
         ClientSize = new Size(540, 560);
         MinimumSize = new Size(440, 360);
         StartPosition = FormStartPosition.CenterScreen;
+        // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so the
+        // ClientSize/MinimumSize literals below scale uniformly from 96 DPI
+        // regardless of which monitor first realizes this form. Without the
+        // pin, AutoScaleDimensions defaults to whatever first monitor reports
+        // and a 125%/150% laptop double-scales the form on first show.
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
 
         const int margin = 18;

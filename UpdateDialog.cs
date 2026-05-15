@@ -45,6 +45,13 @@ internal sealed class UpdateDialog : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         TopMost = true;
+        // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so every
+        // Size/Point literal below is interpreted as 96-DPI design pixels. The
+        // Form base default is AutoScaleMode.Font, which scales by Font.Height
+        // ratio and diverges from PerMonitorV2's pixel scaling on non-integer
+        // DPI ratios; switching to Dpi aligns this dialog with the rest of the app.
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(420, 180);
 
         _boldFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
@@ -158,7 +165,12 @@ internal sealed class UpdateDialog : Form
             _lblDetail.Text = "Use: winget upgrade itsnateai.CapsNumTray";
             _btnAction.Visible = false;
             _btnCancel.Text = "OK";
-            _btnCancel.Location = new Point(170, 112);
+            // Centre the lone Cancel/OK button. Literal 170 (= (420-80)/2 design
+            // pixels) is correct at 100% but at 125%+ AutoScale has already walked
+            // ClientSize and the button width to device pixels; assigning a raw
+            // logical-pixel literal here bypasses that walk and lands the button
+            // off-centre. Compute from current device-pixel dimensions instead.
+            _btnCancel.Location = new Point((ClientSize.Width - _btnCancel.Width) / 2, _btnCancel.Top);
             return;
         }
 
@@ -267,7 +279,9 @@ internal sealed class UpdateDialog : Form
             _lblStatus.Text = "You're on the latest version!";
             _btnAction.Visible = false;
             _btnCancel.Text = "OK";
-            _btnCancel.Location = new Point(170, 112);
+            // Centre the lone button at runtime device pixels — see comment near
+            // the winget-managed branch above for the AutoScale-walk rationale.
+            _btnCancel.Location = new Point((ClientSize.Width - _btnCancel.Width) / 2, _btnCancel.Top);
         }
     }
 
@@ -488,7 +502,9 @@ internal sealed class UpdateDialog : Form
         _lblDetail.Text = detail;
         _btnAction.Visible = false;
         _btnCancel.Text = "OK";
-        _btnCancel.Location = new Point(170, 112);
+        // Centre the lone button at runtime device pixels — see comment near
+        // the winget-managed branch in CheckForUpdateAsync for rationale.
+        _btnCancel.Location = new Point((ClientSize.Width - _btnCancel.Width) / 2, _btnCancel.Top);
     }
 
     // ─── Winget Detection ────────────────────────────────────────
@@ -566,6 +582,14 @@ internal sealed class UpdateDialog : Form
 
             var toast = new Form
             {
+                // Pin design baseline to 96 DPI BEFORE AutoScaleMode so the
+                // Padding literal below scales correctly on 125%+ monitors.
+                // Without this, the toast inherits the Form default AutoScaleMode.Font
+                // and the Padding lands at first-realized-monitor DPI pixels —
+                // SyncthingPause v3.0.1 R3 caught the same missing pin in its
+                // post-update toast and flagged it as a regression.
+                AutoScaleDimensions = new SizeF(96F, 96F),
+                AutoScaleMode = AutoScaleMode.Dpi,
                 FormBorderStyle = FormBorderStyle.None,
                 ShowInTaskbar = false,
                 TopMost = true,

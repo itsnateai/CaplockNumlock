@@ -4,6 +4,31 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.3.3] — 2026-05-14
+
+### Fixed — display scaling on 125%+ monitors
+
+Settings, Help, and Update dialogs now render correctly at 125%, 150%, and 175% Windows display scale. Previously the dialogs were declared "DPI-aware" only at the OS level — the per-form auto-scale baseline was left unpinned, so on a 125%/150% laptop a dialog would silently double-scale on first show: button bottom borders disappeared below the visible area, the **Fallback poll interval** NumericUpDown digits clipped behind the spinner band, and the top row of utility buttons (GitHub / Update / Help) in Settings had their bottom border clipped.
+
+The fix aligns five layers that all need to agree:
+
+- **`app.manifest`** (new) declares `PerMonitorV2` DPI awareness + Win10/11 supportedOS — read by the OS loader before any managed code runs.
+- **`CapsNumTray.csproj`** gains `<ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>` and `<ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>`. Without `ApplicationHighDpiMode`, the source-generated `ApplicationConfiguration.Initialize()` defaults to `SystemAware` and contradicts the manifest.
+- **Every `Form` subclass** (`SettingsForm`, `HelpForm`, `OsdForm`, `UpdateDialog`) sets `AutoScaleDimensions = new SizeF(96F, 96F)` *before* `AutoScaleMode = AutoScaleMode.Dpi`. The order matters: WinForms snapshots `AutoScaleDimensions` at the moment `AutoScaleMode` is set, so flipping the order leaves the baseline at whatever the first-realized monitor reported.
+- **`UpdateDialog`** was inheriting the WinForms default `AutoScaleMode.Font`, which scales by Font.Height ratio and diverges from `PerMonitorV2`'s pixel scaling on non-integer DPI ratios. Now uses `AutoScaleMode.Dpi` to align with the rest of the app.
+- **`SettingsForm`** internal sizing: the **Fallback poll interval** NumericUpDown was 60×24 — the spinner band composes three nested HWNDs whose scaling math diverges by ~25px at 125%, which is enough to push digits behind the spinner in a 60px control. Now 80×26 with a `MinimumSize` floor so AutoScale can't shrink the spinner band into the digit area at any scale factor. The top row of utility buttons (GitHub / Update / Help) was 24px tall — bottom border clipped at 125%+; bumped to 26 (still narrower than the 28px primary row so visual contrast is preserved via the 24px width differential).
+
+Honest framing: v2.3.1 was tagged as a "battle-tested Long-Term Release" and v2.3.2 reaffirmed it — but those claims were based on testing at 100% display scale only. **This is the actual LTR baseline.** If you're running CapsNumTray on a Windows 11 laptop at 125% or higher scale (the default for most 2024+ laptops) and any dialog looked clipped, this release is for you.
+
+### Also fixed (caught by the verifier-pair sweep before tagging)
+
+- **Update dialog cancel-button no longer drifts off-centre at 125%+ scale.** When the dialog showed "You're on the latest version!" / "managed by winget" / an error, `_btnCancel.Location` was reassigned to a literal `(170, 112)` design-pixel position. At 100% this centred the button; at 125%+ AutoScale had already walked `ClientSize` and the button width to device pixels, so the raw-literal reassignment landed off-centre. All three call sites now compute `(ClientSize.Width - _btnCancel.Width) / 2` at runtime so the button stays centred at any scale.
+- **Post-update toast now respects display scaling.** The "✓ CapsNumTray updated to vX.Y.Z" toast that briefly appears after a successful self-update was an anonymous `new Form` without the AutoScale pin pair, so its 12×8 padding rendered at design pixels even on 125%+ monitors (same pattern that bit SyncthingPause v3.0.1).
+
+### Minor cosmetic
+
+The Update dialog's marquee progress-bar animation during downloads moves at a fixed pixel pace, so at 150%+ scale it visibly travels slower across the bar than at 100% (`step=4` is a logical-pixel literal compared against the now-larger device-pixel bar width). Functional only — animation pacing, not clipping. Does not affect download integrity or SHA-256 verification.
+
 ## [2.3.2] — 2026-04-25
 
 ### Security

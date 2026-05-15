@@ -20,6 +20,13 @@ internal sealed class OsdForm : Form
         ShowInTaskbar = false;
         BackColor = System.Drawing.Color.FromArgb(255, 255, 225); // tooltip yellow
         StartPosition = FormStartPosition.Manual;
+        // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so any
+        // future literal Size/Point in this form is interpreted as 96-DPI
+        // design pixels regardless of which monitor first realizes it. The
+        // size below is already DPI-correct via TextRenderer.MeasureText
+        // (handle-independent, measures at current DC), but the pin is
+        // canonical per _.claude/_templates/snippets/csharp/winforms-dpi-scaling.md
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
 
         _label = new Label

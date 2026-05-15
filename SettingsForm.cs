@@ -31,6 +31,12 @@ internal sealed class SettingsForm : Form
         TopMost = true;
         BackColor = System.Drawing.Color.White;
         StartPosition = FormStartPosition.CenterScreen;
+        // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so every
+        // literal Size/Point/Location below is interpreted as 96-DPI design
+        // pixels regardless of which monitor first realizes this form.
+        // Without this, the form gets double-scaled on 125%/150% laptops and
+        // button bottom borders / NumericUpDown digits clip.
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         _formFont = new System.Drawing.Font("Segoe UI", 9f);
         Font = _formFont;
@@ -85,7 +91,13 @@ internal sealed class SettingsForm : Form
             Maximum = 300,
             Value = config.PollInterval,
             Location = new(PollInputX, y),
-            Size = new(60, 24),
+            // Width 80 (not 60) — NumericUpDown's spinner band composes three
+            // nested HWNDs whose scaling diverges by a few px at every non-integer
+            // ratio; at 125% the spinner eats ~25px which collides with digits
+            // in a 60px-wide control. MinimumSize floor prevents AutoScale from
+            // shrinking the spinner back into the digit area at any scale factor.
+            Size = new(80, 26),
+            MinimumSize = new(80, 26),
             Increment = 5,
         };
         Controls.Add(_nudPollInterval);
@@ -100,10 +112,13 @@ internal sealed class SettingsForm : Form
         const int BtnPad = 12;
         const int BtnW = (FormWidth - 4 * BtnPad) / 3; // = 144
 
-        // Primary (bottom) row: full 144×28. Utility (top) row: smaller 120×24 for visual contrast.
+        // Primary (bottom) row: full 144×28. Utility (top) row: smaller 120×26 for visual contrast.
+        // (TopBtnH was 24 — bottom border clipped at 125%+ scale; floor is 26 for 9pt Segoe UI per
+        // _.claude/_templates/snippets/csharp/winforms-dpi-scaling.md §6. Contrast preserved via
+        // the 24px width differential, not height.)
         const int BotBtnH = 28;
         const int TopBtnW = 120;
-        const int TopBtnH = 24;
+        const int TopBtnH = 26;
         const int TopBtnOffset = (BtnW - TopBtnW) / 2; // center each small button in its column slot
 
         int col1X = BtnPad;
