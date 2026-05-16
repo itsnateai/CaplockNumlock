@@ -272,7 +272,11 @@ internal sealed class SettingsForm : Form
             Checked = isChecked,
             Location = new(x, y),
             AutoSize = true,
-            ForeColor = Theme.FgColor,
+            // Pure white instead of Theme.FgColor — at 9pt the Catppuccin
+            // Text shade (#CDD6F3) renders thin against the dark background,
+            // especially through FlatStyle.Flat's grayscale-AA path. White
+            // gives the small-glyph contrast the user asked for.
+            ForeColor = System.Drawing.Color.White,
             BackColor = Theme.BgColor,
             // FlatStyle.Flat switches the CheckBox to a render path that
             // respects ForeColor for the tick glyph. The default

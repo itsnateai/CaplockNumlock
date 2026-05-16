@@ -4,6 +4,14 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.5] — 2026-05-16
+
+### Fixed — Settings checkbox text readability
+
+CheckBox labels in Settings now render in pure white (`#FFFFFF`) instead of Theme.FgColor (Catppuccin Text, `#CDD6F3`). At 9pt with FlatStyle.Flat's grayscale anti-aliasing path the muted lavender shade read thin and ghostly against the dark background. Pure white gives the small-glyph contrast the user asked for.
+
+Other body text (the polling description label, NumericUpDown digits, button text) still uses Theme.FgColor — if it feels comparatively dim alongside the brighter checkbox labels, will widen the change in a follow-up.
+
 ## [2.4.4] — 2026-05-16
 
 Real-world-feedback polish on the Settings dialog.
