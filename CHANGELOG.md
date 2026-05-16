@@ -4,6 +4,33 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.1] — 2026-05-16
+
+Polish-pass on the 2.4.0 dark theme, addressing every gap the post-ship verifier swarm (six agents, Sonnet+Opus pair-by-topic on Diff-clean / Gap-audit / Code-review) converged on.
+
+### Fixed — Settings dialog
+
+- **NumericUpDown spinner band stays themed.** The "Fallback poll interval" `NumericUpDown` was rendering with its digit area dark but the up/down arrow strip beside it system-grey — a visible split inside the otherwise themed dialog. `NumericUpDown` is composed of two child controls (`Controls[0]` is the internal `UpDownButtons` HWND, `Controls[1]` is the text field); the parent's `BackColor` does not propagate to the spinner band because `UpDownButtons` paints its own chrome via `ControlPaint`. Now sets `Controls[0].BackColor = Theme.EditBgColor` on the band so the dark digit area and the spinner strip align. The arrow glyphs themselves stay system-rendered but read fine against the dark background.
+- **CheckBox tick + focus rectangle respect the theme.** The six `CheckBox` controls had `ForeColor`/`BackColor` set on the body but the actual checkmark was drawn by `Application.RenderWithVisualStyles` (light-themed glyph against our dark BG) and the focus rectangle was drawn by `ControlPaint.DrawFocusRectangle` (XOR'd against `SystemColors.ControlText` → near-invisible dotted line on `#1E1E2E`). Setting `FlatStyle = FlatStyle.Flat` switches both glyph and focus-rect to a render path that respects our `ForeColor`. `FlatAppearance.BorderColor`, `CheckedBackColor`, and `MouseOverBackColor` are pinned to the theme palette so hover and checked states stay coordinated.
+- **Win10 1809–19H2 titlebar fallback.** `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE = 20)` was added in v2.4.0 for the dark titlebar. On Win10 1809 through 19H2 attribute 20 returns `S_OK` but has no visible effect — those builds need the legacy undocumented attribute 19. `OnHandleCreated` now calls both attributes unconditionally; DWM silently ignores whichever is unsupported on the current build. Win11 keeps the modern path, Win10 20H1+ keeps the modern path, Win10 1809–19H2 now also gets a dark titlebar.
+
+### Fixed — context menu
+
+- **"Visibility" submenu check glyphs are now visible.** The default `ToolStripProfessionalRenderer.OnRenderItemCheck` paints the checkmark via `ControlPaint.DrawMenuGlyph` using system colors (dark blue/black) — barely visible against our `#353550` highlight background. `BoldSegmentRenderer` now overrides `OnRenderItemCheck` and draws a custom anti-aliased two-segment checkmark in `Theme.FgColor`, so the toggle state of each Caps/Num/Scroll-Lock-icon visibility option reads at a glance.
+
+### Refactored — single source of truth
+
+- **Palette extracted to `Theme.cs`.** v2.4.0 declared the same five Catppuccin Mocha constants (`BgColor`, `FgColor`, `DimColor`, `DividerColor`, `EditBgColor`, plus the menu-renderer's `MenuBg`/`HighlightBg`/`SeparatorColor`) independently in three files: `BoldSegmentRenderer` (in `TrayApplication.cs`), `SettingsForm`, and `OsdForm`. Future palette tweaks would have required three coordinated edits with drift risk on every change. Now one `internal static class Theme` exposes the seven canonical colors and the three former call sites pull from it. Net delta: one new file (~25 lines), ~30 lines deleted across the others. Zero behaviour change for end users — purely an internal refactor that the verifier swarm flagged as the highest-value future-proofing item.
+
+### Fixed — minor GDI / dead-code
+
+- **`OsdForm` border pen is no longer allocated per paint.** The 1px border drawn in `OnPaint` was using `using var pen = new Pen(...)`, which constructs and destroys a GDI handle on every `WM_PAINT`. The OSD only lives 2 seconds and paints once or twice in practice so the impact was negligible, but it was inconsistent with `BoldSegmentRenderer`'s explicit cache-GDI-statically policy. Now a `static readonly Pen` shared for the process lifetime.
+- **Dead `BorderPen` field removed from `BoldSegmentRenderer`.** The renderer had two separate `Pen` fields (`SeparatorPen` and `BorderPen`) initialized from the same `SeparatorColor` — pure duplication. `OnRenderToolStripBorder` now reuses `SeparatorPen`. Saves one GDI handle and one source of future drift.
+
+### Compatibility
+
+Same .NET 8 runtime, same self-contained single-file publish, same self-update flow. INI format, icon resources, and settings are unchanged from 2.4.0. Self-updating from 2.4.0 (or any 2.3.x) lands here automatically on the next update check.
+
 ## [2.4.0] — 2026-05-16
 
 ### Added — dark theme (Catppuccin Mocha)

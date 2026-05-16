@@ -14,7 +14,7 @@
          ambient font for controls that inherit (control-level Font wins). -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>
-    <Version>2.4.0</Version>
+    <Version>2.4.1</Version>
     <Description>Tray icons for Caps Lock, Num Lock, and Scroll Lock state</Description>
     <Product>CapsNumTray</Product>
     <Company>itsNate</Company>

@@ -143,10 +143,16 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     public static extern nint GetModuleHandle(string? lpModuleName);
 
-    // DWM dark-mode titlebar (Win11 22H2+, also works on Win10 1809+ via attr 19).
-    // Attribute 20 = DWMWA_USE_IMMERSIVE_DARK_MODE on 20H1+. Passing a BOOL (int 1)
-    // flips the non-client area (titlebar, borders, system menu) to dark.
+    // DWM dark-mode titlebar.
+    //
+    // Attribute 20 = DWMWA_USE_IMMERSIVE_DARK_MODE on Win10 20H1+ and Win11.
+    // Attribute 19 = the pre-20H1 undocumented predecessor used on Win10 1809–19H2;
+    // on those builds attribute 20 returns S_OK but has no effect, so callers
+    // should try 20 first and fall back to 19 if the visible titlebar is still
+    // light. Passing a BOOL (int 1) flips the non-client area (titlebar,
+    // borders, system menu) to dark.
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    public const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
 
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(nint hwnd, int attr, ref int attrValue, int attrSize);

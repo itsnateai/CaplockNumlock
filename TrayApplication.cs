@@ -475,8 +475,8 @@ internal sealed class TrayApplication : Form
         var menu = new ContextMenuStrip
         {
             Renderer = _menuRenderer,
-            BackColor = BoldSegmentRenderer.MenuBg,
-            ForeColor = BoldSegmentRenderer.MenuFg,
+            BackColor = Theme.BgColor,
+            ForeColor = Theme.FgColor,
         };
         // Gutter stays ON — context-menu icons read better with the gutter on.
 
@@ -530,8 +530,8 @@ internal sealed class TrayApplication : Form
         // chrome so it inherits BackColor/ForeColor when the renderer's color
         // table is queried for things outside our overridden paint paths
         // (drop shadow, scroll arrows on long submenus).
-        visMenu.DropDown.BackColor = BoldSegmentRenderer.MenuBg;
-        visMenu.DropDown.ForeColor = BoldSegmentRenderer.MenuFg;
+        visMenu.DropDown.BackColor = Theme.BgColor;
+        visMenu.DropDown.ForeColor = Theme.FgColor;
         AddCheckItem(visMenu, ID_CAPS,   "Caps Lock",   _config.ShowCaps);
         AddCheckItem(visMenu, ID_NUM,    "Num Lock",    _config.ShowNum);
         AddCheckItem(visMenu, ID_SCROLL, "Scroll Lock", _config.ShowScroll);
@@ -784,19 +784,14 @@ internal sealed class TrayApplication : Form
 // carries the substring to bold; items without a Tag use base text rendering.
 internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisposable
 {
-    // Catppuccin Mocha palette (same constants used in SettingsForm)
-    internal static readonly Color MenuBg = Color.FromArgb(0x1E, 0x1E, 0x2E);
-    internal static readonly Color MenuFg = Color.FromArgb(0xCD, 0xD6, 0xF3);
-    internal static readonly Color MenuFgDisabled = Color.FromArgb(0x80, 0x80, 0x95);
-    internal static readonly Color HighlightBg = Color.FromArgb(0x35, 0x35, 0x50);
-    internal static readonly Color SeparatorColor = Color.FromArgb(0x40, 0x40, 0x50);
-
     // Cached GDI — paint fires on every mouse-move over a menu item; allocating
     // brushes/pens per paint would burn GDI handles in 24/7 tray operation.
-    private static readonly SolidBrush BgBrush = new(MenuBg);
-    private static readonly SolidBrush HighlightBrush = new(HighlightBg);
-    private static readonly Pen SeparatorPen = new(SeparatorColor);
-    private static readonly Pen BorderPen = new(SeparatorColor);
+    // Intentionally process-lifetime: Win32 reclaims handles on process exit,
+    // and Dispose() below only owns the dynamically-sized bold Font.
+    private static readonly SolidBrush BgBrush = new(Theme.BgColor);
+    private static readonly SolidBrush HighlightBrush = new(Theme.HighlightBg);
+    private static readonly SolidBrush FgBrush = new(Theme.FgColor);
+    private static readonly Pen SeparatorPen = new(Theme.DividerColor);
 
     private Font? _bold;
     private Font? _boldBase;
@@ -829,7 +824,9 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
     protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
     {
         var rect = new Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
-        e.Graphics.DrawRectangle(BorderPen, rect);
+        // SeparatorPen reused — outer border is the same DividerColor as the
+        // inter-item separators (was previously a duplicate BorderPen field).
+        e.Graphics.DrawRectangle(SeparatorPen, rect);
     }
 
     protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
@@ -845,14 +842,41 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
         e.Graphics.DrawLine(SeparatorPen, bounds.Left + 4, y, bounds.Right - 4, y);
     }
 
+    protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e)
+    {
+        // The default renderer draws the check glyph via ControlPaint.DrawMenuGlyph,
+        // which uses system colors (dark blue/black) — near-invisible on our
+        // HighlightBg #353550. Draw a custom checkmark with two GDI lines in
+        // FgColor so the "Visibility" submenu ticks are legible against the
+        // themed background.
+        var r = e.ImageRectangle;
+        if (r.Width <= 0 || r.Height <= 0) return;
+
+        // Two-segment checkmark: short stroke down-right from upper-left,
+        // long stroke up-right from there to the upper-right.
+        int padX = r.Width / 4;
+        int padY = r.Height / 4;
+        var pLeft   = new Point(r.Left + padX,            r.Top + r.Height / 2);
+        var pBottom = new Point(r.Left + r.Width / 2 - 1, r.Bottom - padY);
+        var pRight  = new Point(r.Right - padX,           r.Top + padY);
+
+        using var pen = new Pen(Theme.FgColor, 1.6f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round };
+        var prevSmooth = e.Graphics.SmoothingMode;
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        e.Graphics.DrawLine(pen, pLeft, pBottom);
+        e.Graphics.DrawLine(pen, pBottom, pRight);
+        e.Graphics.SmoothingMode = prevSmooth;
+    }
+
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
         // Force dark-theme text color regardless of base text-color path. The
         // base renderer routes disabled items through ControlPaint.DrawStringDisabled
         // which IGNORES e.TextColor and emboss-renders system grey — that path
         // would make our version header / disabled state line render unreadable
-        // against MenuBg. Draw ourselves to keep the color we want.
-        Color color = e.Item.Enabled ? MenuFg : MenuFgDisabled;
+        // against the dark menu background. Draw ourselves to keep the color
+        // we want.
+        Color color = e.Item.Enabled ? Theme.FgColor : Theme.FgDisabledColor;
         e.TextColor = color;
 
         if (e.Item.Tag is not string boldWord || boldWord.Length == 0)
@@ -912,23 +936,23 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
 
     private sealed class DarkColorTable : ProfessionalColorTable
     {
-        public override Color MenuBorder => SeparatorColor;
+        public override Color MenuBorder => Theme.DividerColor;
         public override Color MenuItemBorder => Color.Transparent;
-        public override Color MenuItemSelected => HighlightBg;
-        public override Color MenuStripGradientBegin => MenuBg;
-        public override Color MenuStripGradientEnd => MenuBg;
-        public override Color MenuItemSelectedGradientBegin => HighlightBg;
-        public override Color MenuItemSelectedGradientEnd => HighlightBg;
-        public override Color MenuItemPressedGradientBegin => HighlightBg;
-        public override Color MenuItemPressedGradientEnd => HighlightBg;
-        public override Color ImageMarginGradientBegin => MenuBg;
-        public override Color ImageMarginGradientMiddle => MenuBg;
-        public override Color ImageMarginGradientEnd => MenuBg;
-        public override Color ToolStripDropDownBackground => MenuBg;
-        public override Color SeparatorDark => SeparatorColor;
-        public override Color SeparatorLight => SeparatorColor;
-        public override Color CheckBackground => HighlightBg;
-        public override Color CheckSelectedBackground => HighlightBg;
-        public override Color CheckPressedBackground => HighlightBg;
+        public override Color MenuItemSelected => Theme.HighlightBg;
+        public override Color MenuStripGradientBegin => Theme.BgColor;
+        public override Color MenuStripGradientEnd => Theme.BgColor;
+        public override Color MenuItemSelectedGradientBegin => Theme.HighlightBg;
+        public override Color MenuItemSelectedGradientEnd => Theme.HighlightBg;
+        public override Color MenuItemPressedGradientBegin => Theme.HighlightBg;
+        public override Color MenuItemPressedGradientEnd => Theme.HighlightBg;
+        public override Color ImageMarginGradientBegin => Theme.BgColor;
+        public override Color ImageMarginGradientMiddle => Theme.BgColor;
+        public override Color ImageMarginGradientEnd => Theme.BgColor;
+        public override Color ToolStripDropDownBackground => Theme.BgColor;
+        public override Color SeparatorDark => Theme.DividerColor;
+        public override Color SeparatorLight => Theme.DividerColor;
+        public override Color CheckBackground => Theme.HighlightBg;
+        public override Color CheckSelectedBackground => Theme.HighlightBg;
+        public override Color CheckPressedBackground => Theme.HighlightBg;
     }
 }

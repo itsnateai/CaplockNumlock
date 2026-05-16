@@ -19,13 +19,6 @@ internal sealed class SettingsForm : Form
     private readonly System.Drawing.Font _formFont;
     private readonly System.Drawing.Font _boldFont;
 
-    // Catppuccin Mocha palette — matches SyncthingPause + the tray context menu.
-    private static readonly System.Drawing.Color BgColor      = System.Drawing.Color.FromArgb(0x1E, 0x1E, 0x2E);
-    private static readonly System.Drawing.Color FgColor      = System.Drawing.Color.FromArgb(0xCD, 0xD6, 0xF3);
-    private static readonly System.Drawing.Color DimColor     = System.Drawing.Color.FromArgb(0xA0, 0xA0, 0xC0);
-    private static readonly System.Drawing.Color DividerColor = System.Drawing.Color.FromArgb(0x40, 0x40, 0x50);
-    private static readonly System.Drawing.Color EditBgColor  = System.Drawing.Color.FromArgb(0x2A, 0x2A, 0x3E);
-
     public SettingsForm(ConfigManager config, TrayApplication app)
     {
         _config = config;
@@ -67,8 +60,8 @@ internal sealed class SettingsForm : Form
         // skips the taskbar-button registration step (which is what was causing
         // the visible "pop in" delay), so the form appears noticeably faster.
         ShowInTaskbar = false;
-        BackColor = BgColor;
-        ForeColor = FgColor;
+        BackColor = Theme.BgColor;
+        ForeColor = Theme.FgColor;
         StartPosition = FormStartPosition.CenterScreen;
         // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so every
         // literal Size/Point/Location below is interpreted as 96-DPI design
@@ -87,7 +80,7 @@ internal sealed class SettingsForm : Form
         int yRight = 16;
 
         // ── Tray Icons (left column, top) ──
-        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
+        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
         Controls.Add(lblIcons);
         yLeft += 26;
 
@@ -99,7 +92,7 @@ internal sealed class SettingsForm : Form
         const string startupText = "Run at Windows startup";
         const int StartupHdrX = 210;
 
-        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
+        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
         Controls.Add(lblStartup);
         yRight += 26;
 
@@ -109,7 +102,7 @@ internal sealed class SettingsForm : Form
 
         // ── Feedback ──
         y += 10;
-        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
+        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
         Controls.Add(lblFeedback);
         y += 26;
 
@@ -118,11 +111,11 @@ internal sealed class SettingsForm : Form
 
         // ── Polling ──
         y += 10;
-        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
+        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
         Controls.Add(lblPolling);
         y += 26;
 
-        var lblPollDesc = new Label { Text = "Fallback poll interval (seconds, 0 = disabled):", Location = new(28, y + 2), AutoSize = true, ForeColor = FgColor };
+        var lblPollDesc = new Label { Text = "Fallback poll interval (seconds, 0 = disabled):", Location = new(28, y + 2), AutoSize = true, ForeColor = Theme.FgColor };
         Controls.Add(lblPollDesc);
         _nudPollInterval = new NumericUpDown
         {
@@ -138,12 +131,25 @@ internal sealed class SettingsForm : Form
             Size = new(80, 26),
             MinimumSize = new(80, 26),
             Increment = 5,
-            ForeColor = FgColor,
-            BackColor = EditBgColor,
+            ForeColor = Theme.FgColor,
+            BackColor = Theme.EditBgColor,
             BorderStyle = BorderStyle.FixedSingle,
             TextAlign = HorizontalAlignment.Left,
         };
         Controls.Add(_nudPollInterval);
+        // NumericUpDown is composed of two child controls: the inner text box
+        // (Controls[1]) and the spinner band (Controls[0]) — the spinner is an
+        // internal UpDownButtons HWND that paints its own background via
+        // ControlPaint and ignores its parent's BackColor. Without this assign
+        // the digit area is dark but the up/down arrow strip beside it is
+        // system-grey (visible split). Setting Controls[0].BackColor matches
+        // the band to the digit area; the arrow glyphs themselves stay
+        // system-rendered but read fine against the dark band.
+        if (_nudPollInterval.Controls.Count > 0)
+        {
+            _nudPollInterval.Controls[0].BackColor = Theme.EditBgColor;
+            _nudPollInterval.Controls[0].ForeColor = Theme.FgColor;
+        }
         y += 28;
 
         // ── Buttons (two rows, each row fills horizontally with equal-width buttons) ──
@@ -235,13 +241,22 @@ internal sealed class SettingsForm : Form
     {
         base.OnHandleCreated(e);
         // Flip the titlebar to dark BEFORE the window becomes visible (handle
-        // creation precedes the first WM_NCPAINT). If DWM is unavailable or the
-        // attribute is unsupported (pre-1809 Win10), the HRESULT is just ignored
-        // and the form keeps its default light titlebar — no functional impact.
+        // creation precedes the first WM_NCPAINT). Try the modern attribute
+        // first (20, Win10 20H1+ and Win11). On Win10 1809–19H2 attribute 20
+        // returns S_OK with no visible effect, so we also send the legacy
+        // attribute 19 unconditionally — DWM silently ignores it on builds
+        // where it isn't recognized, and on builds that need it the dark
+        // titlebar appears. On pre-1809 Win10 both calls fail silently and
+        // the form keeps its default light titlebar — no functional impact.
         int dark = 1;
         NativeMethods.DwmSetWindowAttribute(
             Handle,
             NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
+            ref dark,
+            sizeof(int));
+        NativeMethods.DwmSetWindowAttribute(
+            Handle,
+            NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1,
             ref dark,
             sizeof(int));
     }
@@ -254,9 +269,20 @@ internal sealed class SettingsForm : Form
             Checked = isChecked,
             Location = new(x, y),
             AutoSize = true,
-            ForeColor = FgColor,
-            BackColor = BgColor,
+            ForeColor = Theme.FgColor,
+            BackColor = Theme.BgColor,
+            // FlatStyle.Flat switches the CheckBox to a render path that
+            // respects ForeColor for the tick glyph. The default
+            // FlatStyle.Standard uses Application.RenderWithVisualStyles which
+            // paints a light-themed glyph regardless of our ForeColor, and
+            // draws the focus rect via ControlPaint.DrawFocusRectangle which
+            // XORs against SystemColors.ControlText (near-invisible on our
+            // dark BG). Flat draws both in our themed colors.
+            FlatStyle = FlatStyle.Flat,
         };
+        chk.FlatAppearance.BorderColor = Theme.DividerColor;
+        chk.FlatAppearance.CheckedBackColor = Theme.HighlightBg;
+        chk.FlatAppearance.MouseOverBackColor = Theme.HighlightBg;
         Controls.Add(chk);
         y += 24;
         return chk;
@@ -265,9 +291,9 @@ internal sealed class SettingsForm : Form
     private static void ThemeButton(Button btn)
     {
         btn.FlatStyle = FlatStyle.Flat;
-        btn.ForeColor = FgColor;
-        btn.BackColor = BgColor;
-        btn.FlatAppearance.BorderColor = DividerColor;
+        btn.ForeColor = Theme.FgColor;
+        btn.BackColor = Theme.BgColor;
+        btn.FlatAppearance.BorderColor = Theme.DividerColor;
     }
 
     private void Apply()
