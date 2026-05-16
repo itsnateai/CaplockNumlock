@@ -39,12 +39,23 @@ internal sealed class UpdateDialog : Form
 
     public UpdateDialog()
     {
+        // Match SettingsForm's first-show optimizations — open from the dark
+        // Settings dialog should not flicker through a light frame.
+        SetStyle(
+            ControlStyles.OptimizedDoubleBuffer |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.UserPaint,
+            true);
+
         Text = $"{AppName} — Update";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         TopMost = true;
+        ShowInTaskbar = false;
+        BackColor = Theme.BgColor;
+        ForeColor = Theme.FgColor;
         // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so every
         // Size/Point literal below is interpreted as 96-DPI design pixels. The
         // Form base default is AutoScaleMode.Font, which scales by Font.Height
@@ -72,7 +83,7 @@ internal sealed class UpdateDialog : Form
             Text = "",
             Location = new Point(20, 48),
             Size = new Size(370, 20),
-            ForeColor = SystemColors.GrayText,
+            ForeColor = Theme.DimColor,
             Font = _italicFont,
             TextAlign = ContentAlignment.MiddleCenter
         };
@@ -82,14 +93,14 @@ internal sealed class UpdateDialog : Form
         {
             Location = new Point(30, 80),
             Size = new Size(350, 18),
-            BackColor = SystemColors.ControlDark,
+            BackColor = Theme.EditBgColor,
             BorderStyle = BorderStyle.None
         };
         _progressFill = new Panel
         {
             Location = new Point(0, 0),
             Size = new Size(0, 18),
-            BackColor = Color.FromArgb(76, 175, 80)
+            BackColor = Theme.AccentGreen,
         };
         _progressOuter.Controls.Add(_progressFill);
         Controls.Add(_progressOuter);
@@ -99,8 +110,12 @@ internal sealed class UpdateDialog : Form
             Text = "Upgrade Now",
             Location = new Point(155, 112),
             Size = new Size(110, 32),
-            Visible = false
+            Visible = false,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Theme.FgColor,
+            BackColor = Theme.BgColor,
         };
+        _btnAction.FlatAppearance.BorderColor = Theme.DividerColor;
         _btnAction.Click += OnActionClick;
         Controls.Add(_btnAction);
 
@@ -108,8 +123,12 @@ internal sealed class UpdateDialog : Form
         {
             Text = "Cancel",
             Location = new Point(295, 112),
-            Size = new Size(80, 32)
+            Size = new Size(80, 32),
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Theme.FgColor,
+            BackColor = Theme.BgColor,
         };
+        _btnCancel.FlatAppearance.BorderColor = Theme.DividerColor;
         _btnCancel.Click += (_, _) =>
         {
             _cts?.Cancel();
@@ -498,7 +517,7 @@ internal sealed class UpdateDialog : Form
         _marqueeTimer.Stop();
         _progressOuter.Visible = false;
         _lblStatus.Text = message;
-        _lblStatus.ForeColor = Color.FromArgb(255, 152, 0);
+        _lblStatus.ForeColor = Theme.AccentWarn;
         _lblDetail.Text = detail;
         _btnAction.Visible = false;
         _btnCancel.Text = "OK";
@@ -594,7 +613,8 @@ internal sealed class UpdateDialog : Form
                 ShowInTaskbar = false,
                 TopMost = true,
                 StartPosition = FormStartPosition.Manual,
-                BackColor = Color.FromArgb(240, 240, 240),
+                BackColor = Theme.BgColor,
+                ForeColor = Theme.FgColor,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 Padding = new Padding(12, 8, 12, 8)
@@ -605,7 +625,7 @@ internal sealed class UpdateDialog : Form
                 Text = $"\u2705 {AppName} updated to v{version}!",
                 AutoSize = true,
                 Font = toastFont,
-                ForeColor = Color.FromArgb(30, 30, 30)
+                ForeColor = Theme.FgColor,
             };
             toast.Controls.Add(lbl);
             toast.FormClosed += (_, _) => toastFont.Dispose();
@@ -639,6 +659,22 @@ internal sealed class UpdateDialog : Form
         using var stream = File.OpenRead(filePath);
         var hashBytes = SHA256.HashData(stream);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        // Dark titlebar — same dual-attribute pattern as SettingsForm/HelpForm.
+        int dark = 1;
+        int hr = NativeMethods.DwmSetWindowAttribute(
+            Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
+            ref dark, sizeof(int));
+        if (hr != 0)
+        {
+            NativeMethods.DwmSetWindowAttribute(
+                Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1,
+                ref dark, sizeof(int));
+        }
     }
 
     protected override void Dispose(bool disposing)

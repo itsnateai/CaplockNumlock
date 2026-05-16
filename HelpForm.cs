@@ -21,9 +21,11 @@ internal sealed class HelpForm : Form
     private const float  HeaderSize   = 10.75f;
     private const float  BodySize     = 9.75f;
 
-    private static readonly Color s_titleColor  = Color.FromArgb(0x11, 0x11, 0x11);
-    private static readonly Color s_headerColor = Color.FromArgb(0x22, 0x55, 0xAA);
-    private static readonly Color s_bodyColor   = Color.FromArgb(0x1E, 0x1E, 0x1E);
+    // Dark-theme text colors pulled from Theme.cs — section headers use the
+    // Catppuccin Blue accent for visual hierarchy against the body.
+    private static readonly Color s_titleColor  = Theme.FgColor;
+    private static readonly Color s_headerColor = Theme.AccentBlue;
+    private static readonly Color s_bodyColor   = Theme.FgColor;
 
     // Static fonts live for process lifetime — no per-instance Dispose needed.
     private static readonly Font s_titleFont  = new(PrimaryFont, TitleSize, FontStyle.Bold);
@@ -66,9 +68,20 @@ Fallback poll interval: Controls how often the app checks key states independent
 
     public HelpForm()
     {
+        // Match SettingsForm's first-show optimizations so opening Help from
+        // the dark Settings dialog doesn't visibly flicker through a system-
+        // default light frame.
+        SetStyle(
+            ControlStyles.OptimizedDoubleBuffer |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.UserPaint,
+            true);
+
         Text = "CapsNumTray v" + TrayApplication.Version + " — Help";
         TopMost = true;
-        BackColor = Color.White;
+        BackColor = Theme.BgColor;
+        ForeColor = Theme.FgColor;
+        ShowInTaskbar = false;
         ClientSize = new Size(540, 560);
         MinimumSize = new Size(440, 360);
         StartPosition = FormStartPosition.CenterScreen;
@@ -87,7 +100,8 @@ Fallback poll interval: Controls how often the app checks key states independent
         {
             ReadOnly = true,
             BorderStyle = BorderStyle.None,
-            BackColor = Color.White,
+            BackColor = Theme.BgColor,
+            ForeColor = Theme.FgColor,
             ScrollBars = RichTextBoxScrollBars.Vertical,
             DetectUrls = false,
             WordWrap = true,
@@ -167,5 +181,23 @@ Fallback poll interval: Controls how often the app checks key states independent
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        // Dark titlebar — same dual-attribute pattern as SettingsForm. Try the
+        // modern attr 20 first; only fall back to legacy attr 19 on Win10
+        // 1809–19H2 if attr 20 fails.
+        int dark = 1;
+        int hr = NativeMethods.DwmSetWindowAttribute(
+            Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
+            ref dark, sizeof(int));
+        if (hr != 0)
+        {
+            NativeMethods.DwmSetWindowAttribute(
+                Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1,
+                ref dark, sizeof(int));
+        }
     }
 }

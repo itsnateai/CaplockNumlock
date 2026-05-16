@@ -792,6 +792,15 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
     private static readonly SolidBrush HighlightBrush = new(Theme.HighlightBg);
     private static readonly SolidBrush FgBrush = new(Theme.FgColor);
     private static readonly Pen SeparatorPen = new(Theme.DividerColor);
+    // 1.6f stroke + rounded caps — anti-aliased checkmark on the "Visibility"
+    // submenu items. Static-cached for the same reason as the other GDI fields:
+    // OnRenderItemCheck fires on every paint of a checked menu item, so a
+    // per-paint `new Pen(...)` would churn GDI handles in 24/7 tray operation.
+    private static readonly Pen CheckPen = new(Theme.FgColor, 1.6f)
+    {
+        StartCap = System.Drawing.Drawing2D.LineCap.Round,
+        EndCap = System.Drawing.Drawing2D.LineCap.Round,
+    };
 
     private Font? _bold;
     private Font? _boldBase;
@@ -860,11 +869,10 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
         var pBottom = new Point(r.Left + r.Width / 2 - 1, r.Bottom - padY);
         var pRight  = new Point(r.Right - padX,           r.Top + padY);
 
-        using var pen = new Pen(Theme.FgColor, 1.6f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round };
         var prevSmooth = e.Graphics.SmoothingMode;
         e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        e.Graphics.DrawLine(pen, pLeft, pBottom);
-        e.Graphics.DrawLine(pen, pBottom, pRight);
+        e.Graphics.DrawLine(CheckPen, pLeft, pBottom);
+        e.Graphics.DrawLine(CheckPen, pBottom, pRight);
         e.Graphics.SmoothingMode = prevSmooth;
     }
 

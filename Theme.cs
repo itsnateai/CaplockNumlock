@@ -20,4 +20,10 @@ internal static class Theme
     public static readonly System.Drawing.Color HighlightBg      = System.Drawing.Color.FromArgb(0x35, 0x35, 0x50);
     public static readonly System.Drawing.Color EditBgColor      = System.Drawing.Color.FromArgb(0x2A, 0x2A, 0x3E);
     public static readonly System.Drawing.Color DividerColor     = System.Drawing.Color.FromArgb(0x40, 0x40, 0x50);
+
+    // Accent colors (Catppuccin Mocha). Section headers / success / warning —
+    // reserved for places where pure FgColor would lose semantic meaning.
+    public static readonly System.Drawing.Color AccentBlue       = System.Drawing.Color.FromArgb(0x89, 0xB4, 0xFA);
+    public static readonly System.Drawing.Color AccentGreen      = System.Drawing.Color.FromArgb(0xA6, 0xE3, 0xA1);
+    public static readonly System.Drawing.Color AccentWarn       = System.Drawing.Color.FromArgb(0xFA, 0xB3, 0x87);
 }

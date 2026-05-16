@@ -242,23 +242,26 @@ internal sealed class SettingsForm : Form
         base.OnHandleCreated(e);
         // Flip the titlebar to dark BEFORE the window becomes visible (handle
         // creation precedes the first WM_NCPAINT). Try the modern attribute
-        // first (20, Win10 20H1+ and Win11). On Win10 1809–19H2 attribute 20
-        // returns S_OK with no visible effect, so we also send the legacy
-        // attribute 19 unconditionally — DWM silently ignores it on builds
-        // where it isn't recognized, and on builds that need it the dark
-        // titlebar appears. On pre-1809 Win10 both calls fail silently and
-        // the form keeps its default light titlebar — no functional impact.
+        // first (20, Win10 20H1+ and Win11). Only fall back to the legacy
+        // attribute 19 (the undocumented Win10 1809–19H2 path) if attribute
+        // 20 was rejected — defensive against a hypothetical future DWM
+        // build that gives attribute 19 a different meaning. On pre-1809
+        // Win10 both calls fail silently and the form keeps its default
+        // light titlebar — no functional impact.
         int dark = 1;
-        NativeMethods.DwmSetWindowAttribute(
+        int hr = NativeMethods.DwmSetWindowAttribute(
             Handle,
             NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
             ref dark,
             sizeof(int));
-        NativeMethods.DwmSetWindowAttribute(
-            Handle,
-            NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1,
-            ref dark,
-            sizeof(int));
+        if (hr != 0)
+        {
+            NativeMethods.DwmSetWindowAttribute(
+                Handle,
+                NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1,
+                ref dark,
+                sizeof(int));
+        }
     }
 
     private CheckBox AddCheckBox(string text, bool isChecked, int x, ref int y)

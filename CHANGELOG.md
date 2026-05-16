@@ -4,6 +4,35 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.2] — 2026-05-16
+
+Second polish-pass on the dark theme — the post-v2.4.1 verifier swarm flagged a self-contradiction (per-paint GDI allocation in the same release that justified static caches) plus the two reachable-from-Settings dialogs that still rendered light.
+
+### Fixed — self-contradiction in v2.4.1
+
+- **`OnRenderItemCheck` no longer allocates a `Pen` per paint.** v2.4.1 added the submenu check-glyph override with `using var pen = new Pen(Theme.FgColor, 1.6f)` — inside the same `BoldSegmentRenderer` whose top-of-class comment explicitly justifies static caching because "paint fires on every mouse-move over a menu item." The new `CheckPen` is now declared `static readonly` alongside `BgBrush` / `HighlightBrush` / `FgBrush` / `SeparatorPen` and reused across paints.
+- **DWM legacy attribute 19 is now only sent when attribute 20 fails.** v2.4.1 fired both attributes unconditionally to cover Win10 1809–19H2 (where only attribute 19 works). That's correct on every shipping Windows build today, but defensive against a hypothetical future DWM revision: now checks the HRESULT from attribute 20 and only calls attribute 19 on non-`S_OK`.
+
+### Added — dark theme reaches the remaining two dialogs
+
+The post-v2.4.0 verifier flagged it, the post-v2.4.1 verifier flagged it again with REJECT severity, and the user request was "fix all": **Help** and **Update** dialogs are now themed.
+
+- **`HelpForm`** — `RichTextBox` background is `Theme.BgColor`, title and body text in `Theme.FgColor`, section headers (the `——— BASIC USAGE ———` style lines) in `Theme.AccentBlue` for hierarchy. Same first-show optimizations as Settings (`SetStyle` double-buffer + `UserPaint`, `ShowInTaskbar = false`, `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` in `OnHandleCreated` with the attr-19 Win10 1809–19H2 fallback).
+- **`UpdateDialog`** — form background `Theme.BgColor`, status text `Theme.FgColor`, detail text `Theme.DimColor` (italic, secondary), progress bar bg `Theme.EditBgColor`, progress fill `Theme.AccentGreen` (Catppuccin Green replaces the Material `#4CAF50` green for palette unity), error-state text `Theme.AccentWarn` (Catppuccin Peach replaces Material `#FF9800` orange), buttons `FlatStyle.Flat` with `Theme.DividerColor` border. The post-update success toast (the brief "✓ CapsNumTray updated to vX.Y.Z" popup near the system tray after a self-update) is also dark now — `Theme.BgColor` background, `Theme.FgColor` text.
+
+### Added — palette additions in `Theme.cs`
+
+Three new accent colors (Catppuccin Mocha):
+- `AccentBlue` (`#89B4FA`) — section headers in HelpForm, semantic links elsewhere
+- `AccentGreen` (`#A6E3A1`) — success states (UpdateDialog progress fill, future "OK" affordances)
+- `AccentWarn` (`#FAB387`, Catppuccin Peach) — warnings and errors visible against the dark background (UpdateDialog error state)
+
+`Theme.cs` now exposes 10 colors total — the 7 from v2.4.1 plus these three accents. Still a single source of truth.
+
+### Compatibility
+
+Same .NET 8 runtime, same self-contained single-file publish, same self-update flow. INI format, icon resources, and settings are unchanged. Self-updating from any 2.4.x or 2.3.x release lands here automatically.
+
 ## [2.4.1] — 2026-05-16
 
 Polish-pass on the 2.4.0 dark theme, addressing every gap the post-ship verifier swarm (six agents, Sonnet+Opus pair-by-topic on Diff-clean / Gap-audit / Code-review) converged on.
