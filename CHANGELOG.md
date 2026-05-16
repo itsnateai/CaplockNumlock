@@ -4,6 +4,18 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.4] — 2026-05-16
+
+Real-world-feedback polish on the Settings dialog.
+
+### Fixed — Settings section header contrast
+
+Section headers ("Tray Icons", "Startup", "Feedback", "Polling") were using `Theme.DimColor` (Catppuccin Subtext-area #A0A0C0, luminance ~164) while body text uses `Theme.FgColor` (#CDD6F3, luminance ~215). The bold weight partially compensated, but the net visual effect was the headers reading *less* prominent than the body — the eye expects section headers to pop, not recede.
+
+The fix matches the convention already established in HelpForm: section headers now use `Theme.AccentBlue` (Catppuccin Blue #89B4FA), which gives them clear color-coded hierarchy against the regular-weight body text. Two dialogs (Help, Settings) now share the same header treatment for visual consistency.
+
+No code-architecture changes; one-line color swap in `SettingsForm.cs`.
+
 ## [2.4.3] — 2026-05-16
 
 Final closing-pass on the dark theme — the post-v2.4.2 verifier swarm flagged two real items, both addressed here. Per the verifier-loop diminishing-returns rule the loop closes after this release.

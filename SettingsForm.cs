@@ -80,7 +80,7 @@ internal sealed class SettingsForm : Form
         int yRight = 16;
 
         // ── Tray Icons (left column, top) ──
-        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
+        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
         Controls.Add(lblIcons);
         yLeft += 26;
 
@@ -92,7 +92,7 @@ internal sealed class SettingsForm : Form
         const string startupText = "Run at Windows startup";
         const int StartupHdrX = 210;
 
-        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
+        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
         Controls.Add(lblStartup);
         yRight += 26;
 
@@ -102,7 +102,7 @@ internal sealed class SettingsForm : Form
 
         // ── Feedback ──
         y += 10;
-        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
+        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
         Controls.Add(lblFeedback);
         y += 26;
 
@@ -111,7 +111,7 @@ internal sealed class SettingsForm : Form
 
         // ── Polling ──
         y += 10;
-        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.DimColor };
+        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
         Controls.Add(lblPolling);
         y += 26;
 
