@@ -297,6 +297,13 @@ internal sealed class SettingsForm : Form
         btn.ForeColor = Theme.FgColor;
         btn.BackColor = Theme.BgColor;
         btn.FlatAppearance.BorderColor = Theme.DividerColor;
+        // Without explicit hover/pressed colors, FlatStyle.Flat falls back to
+        // SystemColors.ButtonHighlight on hover — a light grey that flashes
+        // against our dark palette every time the user mouses over a button.
+        // HighlightBg matches the menu selection color so all hover states
+        // across the app feel coordinated.
+        btn.FlatAppearance.MouseOverBackColor = Theme.HighlightBg;
+        btn.FlatAppearance.MouseDownBackColor = Theme.EditBgColor;
     }
 
     private void Apply()

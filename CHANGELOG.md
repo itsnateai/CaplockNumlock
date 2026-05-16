@@ -4,6 +4,24 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.3] — 2026-05-16
+
+Final closing-pass on the dark theme — the post-v2.4.2 verifier swarm flagged two real items, both addressed here. Per the verifier-loop diminishing-returns rule the loop closes after this release.
+
+### Fixed — every button in Settings + Update now has themed hover/pressed states
+
+`FlatStyle.Flat` without an explicit `FlatAppearance.MouseOverBackColor` falls back to `SystemColors.ButtonHighlight` on hover — a system light-grey that flashed against the dark palette every time the user moused over a button. Affects all six buttons in Settings (GitHub, Update, Help, OK, Apply, Cancel) and both buttons in the Update dialog (Upgrade Now, Cancel). Now sets `MouseOverBackColor = Theme.HighlightBg` (matches the menu's selected-item color) and `MouseDownBackColor = Theme.EditBgColor` (a touch darker on click for affordance).
+
+### Fixed — misleading internal comment that fooled the v2.4.2 verifier swarm
+
+The post-v2.4.2 round-3 verifier swarm split: three agents concluded the DWM attribute-19 fallback was broken because the comment in `NativeMethods.cs` claimed attribute 20 returns `S_OK` on Win10 1809–19H2 (which would make the `hr != 0` gate skip the fallback). The fourth agent caught that the comment itself was wrong — per Microsoft docs, attribute 20 was added in Win10 20H1 (build 19041), and on 1809–19H2 it actually returns `E_INVALIDARG` (`0x80070057`, non-zero), so the gate fires correctly. The code is right; the comment was misleading. Now fixed so the next reader (human or LLM) doesn't reach the same wrong conclusion.
+
+No behaviour change from v2.4.2 — this is documentation-only correctness.
+
+### Compatibility
+
+Same .NET 8 runtime, same self-contained single-file publish, same self-update flow. Settings, INI format, icon resources unchanged. 2.4.x clients land here automatically on next update check.
+
 ## [2.4.2] — 2026-05-16
 
 Second polish-pass on the dark theme — the post-v2.4.1 verifier swarm flagged a self-contradiction (per-paint GDI allocation in the same release that justified static caches) plus the two reachable-from-Settings dialogs that still rendered light.

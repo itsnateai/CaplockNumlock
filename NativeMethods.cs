@@ -145,12 +145,17 @@ internal static class NativeMethods
 
     // DWM dark-mode titlebar.
     //
-    // Attribute 20 = DWMWA_USE_IMMERSIVE_DARK_MODE on Win10 20H1+ and Win11.
-    // Attribute 19 = the pre-20H1 undocumented predecessor used on Win10 1809–19H2;
-    // on those builds attribute 20 returns S_OK but has no effect, so callers
-    // should try 20 first and fall back to 19 if the visible titlebar is still
-    // light. Passing a BOOL (int 1) flips the non-client area (titlebar,
+    // Attribute 20 = DWMWA_USE_IMMERSIVE_DARK_MODE on Win10 20H1+ (build 19041)
+    // and Win11. On Win10 1809–19H2 (builds 17763–18363) attribute 20 is not
+    // a recognized DWMWA constant — DwmSetWindowAttribute returns E_INVALIDARG
+    // (0x80070057, a non-zero HRESULT). Callers should call attribute 20 first,
+    // check the HRESULT, and only call attribute 19 on non-S_OK. Attribute 19
+    // is the undocumented pre-20H1 predecessor that those 1809–19H2 builds
+    // accept. Passing a BOOL (int 1) flips the non-client area (titlebar,
     // borders, system menu) to dark.
+    //
+    // On pre-1809 Win10, both attributes return E_INVALIDARG and the form
+    // keeps its default light titlebar — no functional impact.
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
 

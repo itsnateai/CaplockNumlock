@@ -116,6 +116,8 @@ internal sealed class UpdateDialog : Form
             BackColor = Theme.BgColor,
         };
         _btnAction.FlatAppearance.BorderColor = Theme.DividerColor;
+        _btnAction.FlatAppearance.MouseOverBackColor = Theme.HighlightBg;
+        _btnAction.FlatAppearance.MouseDownBackColor = Theme.EditBgColor;
         _btnAction.Click += OnActionClick;
         Controls.Add(_btnAction);
 
@@ -129,6 +131,8 @@ internal sealed class UpdateDialog : Form
             BackColor = Theme.BgColor,
         };
         _btnCancel.FlatAppearance.BorderColor = Theme.DividerColor;
+        _btnCancel.FlatAppearance.MouseOverBackColor = Theme.HighlightBg;
+        _btnCancel.FlatAppearance.MouseDownBackColor = Theme.EditBgColor;
         _btnCancel.Click += (_, _) =>
         {
             _cts?.Cancel();
