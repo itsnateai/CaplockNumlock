@@ -19,17 +19,56 @@ internal sealed class SettingsForm : Form
     private readonly System.Drawing.Font _formFont;
     private readonly System.Drawing.Font _boldFont;
 
+    // Catppuccin Mocha palette — matches SyncthingPause + the tray context menu.
+    private static readonly System.Drawing.Color BgColor      = System.Drawing.Color.FromArgb(0x1E, 0x1E, 0x2E);
+    private static readonly System.Drawing.Color FgColor      = System.Drawing.Color.FromArgb(0xCD, 0xD6, 0xF3);
+    private static readonly System.Drawing.Color DimColor     = System.Drawing.Color.FromArgb(0xA0, 0xA0, 0xC0);
+    private static readonly System.Drawing.Color DividerColor = System.Drawing.Color.FromArgb(0x40, 0x40, 0x50);
+    private static readonly System.Drawing.Color EditBgColor  = System.Drawing.Color.FromArgb(0x2A, 0x2A, 0x3E);
+
     public SettingsForm(ConfigManager config, TrayApplication app)
     {
         _config = config;
         _app = app;
+
+        // Three first-show lag mitigations applied here, top-to-bottom:
+        //
+        //   1. OptimizedDoubleBuffer + AllPaintingInWmPaint + UserPaint
+        //      Eliminates the per-child-control paint flicker. Without this,
+        //      each Controls.Add below paints immediately on a CPU-side surface;
+        //      with it, the whole form paints once into an off-screen buffer
+        //      then blits in a single GDI BitBlt \u2014 much less visible "settling."
+        //
+        //   2. SuspendLayout() bracketing the constructor
+        //      Each Controls.Add triggers a layout pass on the parent form.
+        //      We add ~20 controls (6 checkboxes, 4 section labels, 1 NUD,
+        //      1 helper label, 6 buttons, 2 NUD-companion labels) so without
+        //      SuspendLayout this is ~20 layout passes for nothing \u2014 ResumeLayout
+        //      (true) collapses them into one final layout at the end.
+        //
+        //   3. DWMWA_USE_IMMERSIVE_DARK_MODE in OnHandleCreated (below)
+        //      The biggest perceived-lag fix. Without it the OS shows a default
+        //      LIGHT titlebar attached to a dark body for a frame or two before
+        //      DWM repaints, which reads as the form "popping in then settling."
+        SetStyle(
+            ControlStyles.OptimizedDoubleBuffer |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.UserPaint,
+            true);
+        SuspendLayout();
 
         Text = "CapsNumTray v" + TrayApplication.Version + " \u2014 Settings";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         TopMost = true;
-        BackColor = System.Drawing.Color.White;
+        // Hide from the taskbar \u2014 Settings is an auxiliary dialog reached via
+        // tray right-click, not a top-level workspace window. Bonus: Windows
+        // skips the taskbar-button registration step (which is what was causing
+        // the visible "pop in" delay), so the form appears noticeably faster.
+        ShowInTaskbar = false;
+        BackColor = BgColor;
+        ForeColor = FgColor;
         StartPosition = FormStartPosition.CenterScreen;
         // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so every
         // literal Size/Point/Location below is interpreted as 96-DPI design
@@ -48,7 +87,7 @@ internal sealed class SettingsForm : Form
         int yRight = 16;
 
         // ── Tray Icons (left column, top) ──
-        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont };
+        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
         Controls.Add(lblIcons);
         yLeft += 26;
 
@@ -60,7 +99,7 @@ internal sealed class SettingsForm : Form
         const string startupText = "Run at Windows startup";
         const int StartupHdrX = 210;
 
-        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont };
+        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
         Controls.Add(lblStartup);
         yRight += 26;
 
@@ -70,7 +109,7 @@ internal sealed class SettingsForm : Form
 
         // ── Feedback ──
         y += 10;
-        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont };
+        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
         Controls.Add(lblFeedback);
         y += 26;
 
@@ -79,11 +118,11 @@ internal sealed class SettingsForm : Form
 
         // ── Polling ──
         y += 10;
-        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont };
+        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = DimColor };
         Controls.Add(lblPolling);
         y += 26;
 
-        var lblPollDesc = new Label { Text = "Fallback poll interval (seconds, 0 = disabled):", Location = new(28, y + 2), AutoSize = true };
+        var lblPollDesc = new Label { Text = "Fallback poll interval (seconds, 0 = disabled):", Location = new(28, y + 2), AutoSize = true, ForeColor = FgColor };
         Controls.Add(lblPollDesc);
         _nudPollInterval = new NumericUpDown
         {
@@ -99,6 +138,10 @@ internal sealed class SettingsForm : Form
             Size = new(80, 26),
             MinimumSize = new(80, 26),
             Increment = 5,
+            ForeColor = FgColor,
+            BackColor = EditBgColor,
+            BorderStyle = BorderStyle.FixedSingle,
+            TextAlign = HorizontalAlignment.Left,
         };
         Controls.Add(_nudPollInterval);
         y += 28;
@@ -131,6 +174,7 @@ internal sealed class SettingsForm : Form
         int helpX   = col3X + TopBtnOffset;
 
         var btnGitHub = new Button { Text = "GitHub", Location = new(gitHubX, y), Size = new(TopBtnW, TopBtnH) };
+        ThemeButton(btnGitHub);
         btnGitHub.Click += (_, _) =>
         {
             using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -142,6 +186,7 @@ internal sealed class SettingsForm : Form
         Controls.Add(btnGitHub);
 
         var btnUpdate = new Button { Text = "Update", Location = new(updateX, y), Size = new(TopBtnW, TopBtnH) };
+        ThemeButton(btnUpdate);
         btnUpdate.Click += (_, _) =>
         {
             using var dlg = new UpdateDialog();
@@ -150,6 +195,7 @@ internal sealed class SettingsForm : Form
         Controls.Add(btnUpdate);
 
         var btnHelp = new Button { Text = "Help", Location = new(helpX, y), Size = new(TopBtnW, TopBtnH) };
+        ThemeButton(btnHelp);
         btnHelp.Click += (_, _) => ShowHelpWindow();
         Controls.Add(btnHelp);
 
@@ -161,20 +207,43 @@ internal sealed class SettingsForm : Form
         int cancelX = col3X;
 
         var btnOK = new Button { Text = "OK", Location = new(okX, y), Size = new(BtnW, BotBtnH) };
+        ThemeButton(btnOK);
         btnOK.Click += (_, _) => { Apply(); Close(); };
         Controls.Add(btnOK);
         AcceptButton = btnOK;
 
         var btnApply = new Button { Text = "Apply", Location = new(applyX, y), Size = new(BtnW, BotBtnH) };
+        ThemeButton(btnApply);
         btnApply.Click += (_, _) => Apply();
         Controls.Add(btnApply);
 
         var btnCancel = new Button { Text = "Cancel", Location = new(cancelX, y), Size = new(BtnW, BotBtnH) };
+        ThemeButton(btnCancel);
         btnCancel.Click += (_, _) => Close();
         Controls.Add(btnCancel);
         CancelButton = btnCancel;
 
         ClientSize = new System.Drawing.Size(FormWidth, y + BotBtnH + 16);
+
+        // ResumeLayout(true) — single layout pass for the whole tree instead of
+        // ~20 incremental ones. Must come AFTER ClientSize so the final layout
+        // sees the right form bounds.
+        ResumeLayout(performLayout: true);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        // Flip the titlebar to dark BEFORE the window becomes visible (handle
+        // creation precedes the first WM_NCPAINT). If DWM is unavailable or the
+        // attribute is unsupported (pre-1809 Win10), the HRESULT is just ignored
+        // and the form keeps its default light titlebar — no functional impact.
+        int dark = 1;
+        NativeMethods.DwmSetWindowAttribute(
+            Handle,
+            NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
+            ref dark,
+            sizeof(int));
     }
 
     private CheckBox AddCheckBox(string text, bool isChecked, int x, ref int y)
@@ -185,10 +254,20 @@ internal sealed class SettingsForm : Form
             Checked = isChecked,
             Location = new(x, y),
             AutoSize = true,
+            ForeColor = FgColor,
+            BackColor = BgColor,
         };
         Controls.Add(chk);
         y += 24;
         return chk;
+    }
+
+    private static void ThemeButton(Button btn)
+    {
+        btn.FlatStyle = FlatStyle.Flat;
+        btn.ForeColor = FgColor;
+        btn.BackColor = BgColor;
+        btn.FlatAppearance.BorderColor = DividerColor;
     }
 
     private void Apply()

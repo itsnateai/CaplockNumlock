@@ -4,6 +4,37 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.0] — 2026-05-16
+
+### Added — dark theme (Catppuccin Mocha)
+
+The tray right-click menu, the **Settings** window, and the on-screen-display tooltip ("Caps Lock ON" / "Num Lock OFF") are now rendered in a coordinated dark palette matching the SyncthingPause sibling app. Same five constants are reusable for any future tray-app sibling that wants to match.
+
+- **Context menu** — background `#1E1E2E`, text `#CDD6F3`, item highlight `#353550`, separator + border `#404050`. The bold "ON"/"OFF" segment of the state header line is preserved. Disabled items (the version header at the top of the menu) render in `#808095` instead of the default embossed-grey from `ControlPaint.DrawStringDisabled` — the WinForms default text-renderer ignores `e.TextColor` on the disabled path, so a manual `TextRenderer.DrawText` branch was needed to keep the colour intentional. The "Visibility" submenu inherits the same chrome (drop-down `BackColor` + `ForeColor` set explicitly so the dropdown arrow and any out-of-paint-path fallbacks pick up the dark palette).
+- **Settings window** — form background `#1E1E2E`, foreground `#CDD6F3`, section headers in dim purple-grey `#A0A0C0`, NumericUpDown input in a slightly-lighter edit colour `#2A2A3E`, all six buttons flat-styled with a `#404050` divider border.
+- **OSD tooltip** — borderless form rendered with the same `#1E1E2E` / `#CDD6F3` pair plus a 1px `#404050` border drawn via `OnPaint` so it reads cleanly on dark wallpapers. Replaces the previous tooltip-yellow `(255, 255, 225)` background.
+
+The tray-icon hover tooltip (the small "Caps Lock: ON" box that pops out of the tray icon itself) is painted by the Windows shell from `NOTIFYICONDATAW.szTip` and follows the system theme — no in-process API to override it.
+
+### Fixed — first-show lag on the Settings window
+
+Three compounding sources of perceived "lag" on the very first open of the Settings dialog, all addressed:
+
+- **Light titlebar on a dark body.** Windows draws the non-client area (titlebar, borders) using the system theme before DWM repaints, so a dark form would briefly show with a default light titlebar attached — that "settling" frame reads as the form popping in and then re-rendering. Fixed by calling `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` in `OnHandleCreated`, before the first `WM_NCPAINT`. The titlebar is now dark from the first frame.
+- **No form-level double-buffering.** Each `Controls.Add` in the constructor (we add ~20 controls) was triggering an immediate paint, producing visible per-child flicker as the form composed itself. Fixed by enabling `OptimizedDoubleBuffer | AllPaintingInWmPaint | UserPaint` via `SetStyle()`, which paints the entire form once into an off-screen buffer and blits it in a single `BitBlt`.
+- **No layout batching.** Without `SuspendLayout()` / `ResumeLayout()`, each `Controls.Add` triggered a separate layout pass on the parent form (so ~20 passes for a single dialog). Now bracketed with a single deferred layout at the end.
+- **Settings dialog was registering a taskbar button.** A settings dialog reached from a tray right-click doesn't need a taskbar entry of its own — and registering one walks through `ITaskbarList3`, jump-list lookup, and an icon-load for the thumbnail, which is what was causing the "popup" delay reported in user testing. Fixed by setting `ShowInTaskbar = false` (matches SyncthingPause's pattern). The dialog still appears in Alt+Tab for users who want to switch back to it.
+
+### Internal
+
+- `NativeMethods.cs` gains `DwmSetWindowAttribute` P/Invoke + `DWMWA_USE_IMMERSIVE_DARK_MODE = 20` constant.
+- `BoldSegmentRenderer` (the existing custom renderer that bolds one substring of an item's text) now subclasses `ProfessionalColorTable` via a nested `DarkColorTable` — needed because the default colour table is queried by `ToolStripProfessionalRenderer` for paint regions outside the methods we override (the submenu drop shadow, scroll arrows on long submenus, the check-background), and without overriding it those regions would still leak the system light-blue/grey.
+- GDI brush + pen instances in the renderer are `static readonly` and live for the process lifetime — paint fires on every mouse-move over a menu item, so per-paint allocation would burn GDI handles in 24/7 tray operation.
+
+### Compatibility
+
+Same .NET 8 runtime, same self-contained single-file publish, same self-update flow. Settings, INI format, and icon resources are unchanged from 2.3.3. Self-updating from 2.3.x lands here automatically the next time CapsNumTray checks for updates.
+
 ## [2.3.3] — 2026-05-14
 
 ### Fixed — display scaling on 125%+ monitors

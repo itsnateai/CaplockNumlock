@@ -8,6 +8,11 @@ internal sealed class OsdForm : Form
 {
     private static readonly System.Drawing.Font SharedFont = new("Segoe UI", 9f);
 
+    // Catppuccin Mocha palette — matches the tray menu + Settings window.
+    private static readonly System.Drawing.Color OsdBgColor      = System.Drawing.Color.FromArgb(0x1E, 0x1E, 0x2E);
+    private static readonly System.Drawing.Color OsdFgColor      = System.Drawing.Color.FromArgb(0xCD, 0xD6, 0xF3);
+    private static readonly System.Drawing.Color OsdBorderColor  = System.Drawing.Color.FromArgb(0x40, 0x40, 0x50);
+
     private readonly Label _label;
     private readonly System.Windows.Forms.Timer _hideTimer;
     private bool _disposed;
@@ -18,7 +23,8 @@ internal sealed class OsdForm : Form
     {
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
-        BackColor = System.Drawing.Color.FromArgb(255, 255, 225); // tooltip yellow
+        BackColor = OsdBgColor;
+        ForeColor = OsdFgColor;
         StartPosition = FormStartPosition.Manual;
         // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so any
         // future literal Size/Point in this form is interpreted as 96-DPI
@@ -34,6 +40,8 @@ internal sealed class OsdForm : Form
             Text = text,
             AutoSize = true,
             Font = SharedFont,
+            ForeColor = OsdFgColor,
+            BackColor = OsdBgColor,
             Location = new System.Drawing.Point(6, 4),
         };
         Controls.Add(_label);
@@ -63,6 +71,17 @@ internal sealed class OsdForm : Form
             Close();
         };
         _hideTimer.Start();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        // 1px border in DividerColor — the form is borderless and the BG would
+        // otherwise blend into a dark wallpaper. Inset by 1px so the line draws
+        // fully inside ClientRectangle (Width-1 / Height-1 is the standard
+        // off-by-one fix for Rectangle drawing).
+        using var pen = new Pen(OsdBorderColor);
+        e.Graphics.DrawRectangle(pen, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
     }
 
     protected override void Dispose(bool disposing)

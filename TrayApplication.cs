@@ -472,8 +472,12 @@ internal sealed class TrayApplication : Form
             _contextMenu = null;
         }
 
-        var menu = new ContextMenuStrip();
-        menu.Renderer = _menuRenderer;
+        var menu = new ContextMenuStrip
+        {
+            Renderer = _menuRenderer,
+            BackColor = BoldSegmentRenderer.MenuBg,
+            ForeColor = BoldSegmentRenderer.MenuFg,
+        };
         // Gutter stays ON — context-menu icons read better with the gutter on.
 
         // Auto-dispose when menu closes
@@ -522,6 +526,12 @@ internal sealed class TrayApplication : Form
         // Shared Visibility submenu — same contents regardless of which icon was clicked
         menu.Items.Add(new ToolStripSeparator());
         var visMenu = (ToolStripMenuItem)menu.Items.Add("Visibility");
+        // The dropdown is a separate ToolStripDropDown — give it matching dark
+        // chrome so it inherits BackColor/ForeColor when the renderer's color
+        // table is queried for things outside our overridden paint paths
+        // (drop shadow, scroll arrows on long submenus).
+        visMenu.DropDown.BackColor = BoldSegmentRenderer.MenuBg;
+        visMenu.DropDown.ForeColor = BoldSegmentRenderer.MenuFg;
         AddCheckItem(visMenu, ID_CAPS,   "Caps Lock",   _config.ShowCaps);
         AddCheckItem(visMenu, ID_NUM,    "Num Lock",    _config.ShowNum);
         AddCheckItem(visMenu, ID_SCROLL, "Scroll Lock", _config.ShowScroll);
@@ -769,12 +779,29 @@ internal sealed class TrayApplication : Form
     }
 }
 
-// Custom context-menu renderer that bolds one substring inside an item's text.
-// Item.Tag carries the substring to bold; items without a Tag use base rendering.
+// Custom dark-themed context-menu renderer (Catppuccin Mocha palette, matches
+// SyncthingPause). Also bolds one substring inside an item's text — Item.Tag
+// carries the substring to bold; items without a Tag use base text rendering.
 internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisposable
 {
+    // Catppuccin Mocha palette (same constants used in SettingsForm)
+    internal static readonly Color MenuBg = Color.FromArgb(0x1E, 0x1E, 0x2E);
+    internal static readonly Color MenuFg = Color.FromArgb(0xCD, 0xD6, 0xF3);
+    internal static readonly Color MenuFgDisabled = Color.FromArgb(0x80, 0x80, 0x95);
+    internal static readonly Color HighlightBg = Color.FromArgb(0x35, 0x35, 0x50);
+    internal static readonly Color SeparatorColor = Color.FromArgb(0x40, 0x40, 0x50);
+
+    // Cached GDI — paint fires on every mouse-move over a menu item; allocating
+    // brushes/pens per paint would burn GDI handles in 24/7 tray operation.
+    private static readonly SolidBrush BgBrush = new(MenuBg);
+    private static readonly SolidBrush HighlightBrush = new(HighlightBg);
+    private static readonly Pen SeparatorPen = new(SeparatorColor);
+    private static readonly Pen BorderPen = new(SeparatorColor);
+
     private Font? _bold;
     private Font? _boldBase;
+
+    public BoldSegmentRenderer() : base(new DarkColorTable()) { }
 
     public Font GetBold(System.Drawing.Font baseFont)
     {
@@ -787,10 +814,56 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
         return _bold;
     }
 
+    protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+    {
+        var rect = new Rectangle(Point.Empty, e.Item.Size);
+        var brush = e.Item.Selected && e.Item.Enabled ? HighlightBrush : BgBrush;
+        e.Graphics.FillRectangle(brush, rect);
+    }
+
+    protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+    {
+        e.Graphics.FillRectangle(BgBrush, e.AffectedBounds);
+    }
+
+    protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+    {
+        var rect = new Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
+        e.Graphics.DrawRectangle(BorderPen, rect);
+    }
+
+    protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
+    {
+        // Suppress the default white image-margin strip on the left
+        e.Graphics.FillRectangle(BgBrush, e.AffectedBounds);
+    }
+
+    protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+    {
+        var bounds = new Rectangle(Point.Empty, e.Item.Size);
+        int y = bounds.Height / 2;
+        e.Graphics.DrawLine(SeparatorPen, bounds.Left + 4, y, bounds.Right - 4, y);
+    }
+
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
+        // Force dark-theme text color regardless of base text-color path. The
+        // base renderer routes disabled items through ControlPaint.DrawStringDisabled
+        // which IGNORES e.TextColor and emboss-renders system grey — that path
+        // would make our version header / disabled state line render unreadable
+        // against MenuBg. Draw ourselves to keep the color we want.
+        Color color = e.Item.Enabled ? MenuFg : MenuFgDisabled;
+        e.TextColor = color;
+
         if (e.Item.Tag is not string boldWord || boldWord.Length == 0)
         {
+            // No bold segment — but we still need the disabled path under our
+            // control. Draw text directly when the item is disabled.
+            if (!e.Item.Enabled && !string.IsNullOrEmpty(e.Text))
+            {
+                TextRenderer.DrawText(e.Graphics, e.Text, e.TextFont, e.TextRectangle, color, e.TextFormat);
+                return;
+            }
             base.OnRenderItemText(e);
             return;
         }
@@ -804,7 +877,6 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
 
         Font regular = e.ToolStrip!.Font;
         Font bold = GetBold(regular);
-        Color color = e.TextColor;
         TextFormatFlags flags =
             TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
             TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.NoPadding;
@@ -836,5 +908,27 @@ internal sealed class BoldSegmentRenderer : ToolStripProfessionalRenderer, IDisp
         _bold?.Dispose();
         _bold = null;
         _boldBase = null;
+    }
+
+    private sealed class DarkColorTable : ProfessionalColorTable
+    {
+        public override Color MenuBorder => SeparatorColor;
+        public override Color MenuItemBorder => Color.Transparent;
+        public override Color MenuItemSelected => HighlightBg;
+        public override Color MenuStripGradientBegin => MenuBg;
+        public override Color MenuStripGradientEnd => MenuBg;
+        public override Color MenuItemSelectedGradientBegin => HighlightBg;
+        public override Color MenuItemSelectedGradientEnd => HighlightBg;
+        public override Color MenuItemPressedGradientBegin => HighlightBg;
+        public override Color MenuItemPressedGradientEnd => HighlightBg;
+        public override Color ImageMarginGradientBegin => MenuBg;
+        public override Color ImageMarginGradientMiddle => MenuBg;
+        public override Color ImageMarginGradientEnd => MenuBg;
+        public override Color ToolStripDropDownBackground => MenuBg;
+        public override Color SeparatorDark => SeparatorColor;
+        public override Color SeparatorLight => SeparatorColor;
+        public override Color CheckBackground => HighlightBg;
+        public override Color CheckSelectedBackground => HighlightBg;
+        public override Color CheckPressedBackground => HighlightBg;
     }
 }
