@@ -4,6 +4,47 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.6] — 2026-05-16
+
+### Added — User-selectable window-chrome theme
+
+A Theme dropdown now sits directly under the "Run at Windows startup" checkbox in Settings, offering three options:
+
+- **System** — follows the Windows app theme (matches v2.4.5 behaviour, the default)
+- **Dark** — pins Catppuccin Mocha regardless of OS theme
+- **Light** — pins Catppuccin Latte (new) regardless of OS theme
+
+Affects window chrome only: Settings, Help, Update dialog, OSD tooltip, right-click context menu, and titlebar (via `DWMWA_USE_IMMERSIVE_DARK_MODE`). **Tray icons are unaffected** — they continue to follow the OS taskbar theme via the existing `_Light.ico` variant swap, independent of this pin.
+
+Restart-to-apply, by design: the GDI brush and pen caches in `BoldSegmentRenderer`, `OsdForm`, and `HelpForm` are `static readonly` field initializers that capture `Theme.*` colours at first class load — they're write-once per process. Live swap would leave a mixed palette behind. When the user changes the dropdown, the saved OSD message says so explicitly ("Settings saved — theme applies on next launch.") with a longer 4-second dwell.
+
+### Changed — Theme.cs structure
+
+Static `readonly` colour fields are now properties routing to one of two private nested palettes (`Dark` = Catppuccin Mocha, unchanged; `Light` = Catppuccin Latte, new). `Theme.Initialize(bool isDark)` selects the active palette at startup, before anything that captures `Theme.*` in a static field initializer is first touched. A new `Theme.ResolveIsDark(string?)` helper maps the saved `ThemeMode` config value to a concrete is-dark decision, falling back to the OS theme for "System" / unknown values.
+
+`TrayApplication.DetectLightTheme()` (private static, registry-read for `SystemUsesLightTheme`) was consolidated into `Theme.IsSystemLightTheme()` — same implementation, one home for it now.
+
+### Config
+
+New INI section: `[Appearance]` with `ThemeMode=System|Dark|Light`. Section names match case-insensitively (`[Appearance]` / `[appearance]` / `[APPEARANCE]` all work) and values match case-insensitively with canonical-case storage (`themeMode=dark` is preserved as `ThemeMode=Dark` on next save, so the Settings dropdown's case-sensitive `IndexOf` always finds the right item). Unknown values silently fall back to System rather than crashing. Default for first-launch and unmigrated configs is `System`, preserving previous behaviour.
+
+### First-user-feedback polish (pre-ship)
+
+Two real-world fixes after the v2.4.6 build was running in a tray:
+
+- **Light palette was retina-burning** — first user feedback was "Light mode is VERY BRIGHT in the settings window, like burn your eyes bright white." The canonical Latte base (`#EFF1F5`, ~91% luminance) is designed for code-editor body text, not full-screen-window backgrounds. Swapped `Light.Bg` to Latte's `crust` slot (`#DCE0E8`, ~79% luminance) — 13% less bright, still a clean Catppuccin grey. AccentBlue (user's favourite) untouched. Bonus: every other contrast ratio improves because the BG got darker — AccentWarn red went from 3.9:1 to 5.5:1.
+- **Manual restart was friction** — "to restart the program manually I have to dig for an icon to click... the user probably has the same issue." `ApplySettings` now auto-relaunches when the theme dropdown changes: spawns a replacement process with `--after-theme-restart` before calling `Application.Exit`, so a launch failure (locked exe, AV scan, missing path) is detectable and the user is never left with no tray. `Program.cs` extends the existing `--after-update` mutex-retry loop (50 × 100 ms) to `--after-theme-restart`. The new process shows a brief "Theme applied." OSD ~800 ms after launch (via the new `OsdForm.ShowDelayedOsd` helper) so the user gets a confirmation. Other settings made in the same Apply are still saved before restart fires — the new process loads them from disk normally.
+
+### Verifier-flagged polish (pre-ship)
+
+The 6-agent verifier swarm (Sonnet + Opus on Diff-clean / Gap-audit / Code-review) caught five convergent issues before ship. All folded into 2.4.6 directly rather than shipped as a separate point release:
+
+- **Case-handling asymmetry** — three verifiers flagged that `ConfigManager.Load`'s ThemeMode whitelist was case-sensitive (`val == "Dark"`) while `Theme.ResolveIsDark` and `TrayApplication.themeChanged` both used `OrdinalIgnoreCase`. A hand-edited `themeMode=dark` in the INI silently became `"System"`, the dropdown showed the wrong selection, and the restart-OSD never fired. Fixed by normalizing section + value matching with canonical-case storage.
+- **Light palette contrast** — `Light.AccentWarn` was set to Catppuccin Latte peach `#FE640B`, which contrasts at ~2.7:1 against the `#EFF1F5` base — below WCAG AA 4.5:1 — making `UpdateDialog.ShowError`'s status label hard to read on the light theme. Swapped to Latte red `#D20F39` (~3.9:1, and semantically correct for error states). `Light.Dim` similarly bumped from Latte subtext0 `#7C7F93` (~4.0:1, borderline italic) to subtext1 `#5C5F77` (~5.6:1) for the italic 9.5pt `_lblDetail`. Dark palette unchanged — contrast against `#1E1E2E` was never the bottleneck there.
+- **Silent catch blocks** — `ConfigManager.Load`, `ConfigManager.Save`, and `Theme.IsSystemLightTheme` all swallowed exceptions with bare `catch {}`. The fail-loud rule (CLAUDE.md Rule 12) says: log loudly even when recovering. Each catch now `Trace.WriteLine`s the exception type + message, matching the convention already used in `TrayApplication.ShellNotify` for `Shell_NotifyIconW` failures. The OSD-says-"Settings saved"-when-write-failed bug is still latent (fixing it loudly requires bubbling to the UI, out of scope) — at least a Trace listener now catches it.
+- **`Theme.Initialize` double-call** — previously the idempotent guard silently returned on a second call. Now it `Trace.WriteLine`s a warning explaining the constraint (static GDI caches captured at first class load → restart-to-apply). Aimed at a future maintainer who tries to add live-theme-swap and wonders why their second `Initialize` call has no effect.
+- **Test coverage** — added three new tests: Light round-trip (was only Dark before), legacy v2.4.5 INI parse without `[Appearance]` section, and case-insensitive section + value parse with canonical-case assert.
+
 ## [2.4.5] — 2026-05-16
 
 ### Fixed — Settings checkbox text readability

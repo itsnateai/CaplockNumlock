@@ -186,10 +186,11 @@ Fallback poll interval: Controls how often the app checks key states independent
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // Dark titlebar — same dual-attribute pattern as SettingsForm. Try the
-        // modern attr 20 first; only fall back to legacy attr 19 on Win10
-        // 1809–19H2 if attr 20 fails.
-        int dark = 1;
+        // Match titlebar to the active chrome theme — same dual-attribute
+        // pattern as SettingsForm. dark=1 = dark titlebar, dark=0 = light.
+        // Try the modern attr 20 first; only fall back to legacy attr 19 on
+        // Win10 1809–19H2 if attr 20 fails.
+        int dark = Theme.IsDark ? 1 : 0;
         int hr = NativeMethods.DwmSetWindowAttribute(
             Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
             ref dark, sizeof(int));

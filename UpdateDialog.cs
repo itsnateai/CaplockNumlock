@@ -668,8 +668,9 @@ internal sealed class UpdateDialog : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // Dark titlebar — same dual-attribute pattern as SettingsForm/HelpForm.
-        int dark = 1;
+        // Match titlebar to the active chrome theme — same dual-attribute
+        // pattern as SettingsForm/HelpForm. dark=1 = dark titlebar, dark=0 = light.
+        int dark = Theme.IsDark ? 1 : 0;
         int hr = NativeMethods.DwmSetWindowAttribute(
             Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
             ref dark, sizeof(int));

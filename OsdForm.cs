@@ -118,4 +118,24 @@ internal sealed class OsdForm : Form
         _current = new OsdForm(text, durationMs);
         _current.Show();
     }
+
+    /// <summary>
+    /// Show an OSD after <paramref name="delayMs"/> from now, for
+    /// <paramref name="dwellMs"/>. Used by Program.cs post-launch when the user
+    /// triggered an auto-restart (theme change, update apply) and we want to
+    /// confirm the new state once the tray icons have had a moment to
+    /// materialize. The timer fires once the WinForms message loop is up
+    /// (so this is safe to call from Main BEFORE Application.Run).
+    /// </summary>
+    public static void ShowDelayedOsd(string text, int delayMs, int dwellMs)
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = delayMs };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            ShowOsd(text, dwellMs);
+        };
+        timer.Start();
+    }
 }

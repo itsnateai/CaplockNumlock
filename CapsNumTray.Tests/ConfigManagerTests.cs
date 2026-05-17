@@ -79,6 +79,93 @@ public class ConfigManagerTests
     }
 
     [TestMethod]
+    public void NoIniFile_DefaultsThemeModeToSystem()
+    {
+        // Theme dropdown defaults to "System" so fresh installs and unmigrated
+        // configs preserve the v2.4.5 OS-following behaviour. Theme.ResolveIsDark
+        // maps "System" to !IsSystemLightTheme(), so this is the only value
+        // that hands theme choice back to the OS.
+        var cfg = new ConfigManager(IniPath);
+        cfg.Load();
+        Assert.AreEqual("System", cfg.ThemeMode);
+    }
+
+    [TestMethod]
+    public void SaveThenLoad_RoundTripsThemeMode()
+    {
+        var written = new ConfigManager(IniPath) { ThemeMode = "Dark" };
+        written.Save();
+
+        var loaded = new ConfigManager(IniPath);
+        loaded.Load();
+        Assert.AreEqual("Dark", loaded.ThemeMode);
+    }
+
+    [TestMethod]
+    public void Load_RejectsUnknownThemeMode_FallsBackToSystem()
+    {
+        // Whitelist on read protects Theme.ResolveIsDark from having to handle
+        // typos that survived a hand-edit of the INI. Only "System", "Dark",
+        // and "Light" are accepted; anything else falls back to the default.
+        File.WriteAllText(IniPath,
+            "[Appearance]\r\nThemeMode=Mauve\r\n");
+
+        var cfg = new ConfigManager(IniPath);
+        cfg.Load();
+        Assert.AreEqual("System", cfg.ThemeMode);
+    }
+
+    [TestMethod]
+    public void SaveThenLoad_RoundTripsThemeMode_Light()
+    {
+        // Light is the other non-default ThemeMode value — the v2.4.6 verifier
+        // swarm pointed out the round-trip test only covered "Dark", which
+        // means a one-character bug producing "Lite" instead of "Light" would
+        // have passed all prior tests. Cover both non-default branches.
+        var written = new ConfigManager(IniPath) { ThemeMode = "Light" };
+        written.Save();
+
+        var loaded = new ConfigManager(IniPath);
+        loaded.Load();
+        Assert.AreEqual("Light", loaded.ThemeMode);
+    }
+
+    [TestMethod]
+    public void Load_LegacyIniWithoutAppearanceSection_DefaultsThemeModeToSystem()
+    {
+        // v2.4.5 INI format had no [Appearance] section — verify the v2.4.6
+        // upgrade path silently falls back to ThemeMode=System for legacy
+        // configs instead of throwing or returning empty string.
+        File.WriteAllText(IniPath,
+            "[Visibility]\r\nShowCaps=1\r\nShowNum=1\r\nShowScroll=0\r\n" +
+            "\r\n[General]\r\nShowOSD=1\r\nBeepOnToggle=0\r\nPollInterval=0\r\n");
+
+        var cfg = new ConfigManager(IniPath);
+        cfg.Load();
+        Assert.AreEqual("System", cfg.ThemeMode);
+        // Sanity-check the rest of the legacy config also round-trips so the
+        // ThemeMode default-injection didn't accidentally break legacy parsing.
+        Assert.IsTrue(cfg.ShowCaps);
+        Assert.IsTrue(cfg.ShowNum);
+        Assert.IsFalse(cfg.ShowScroll);
+    }
+
+    [TestMethod]
+    public void Load_CaseInsensitiveSectionAndValue_StoresCanonical()
+    {
+        // The v2.4.6 verifier swarm caught the previous case-sensitive switch
+        // would silently drop hand-edited [appearance] / themeMode=dark. The
+        // fix normalizes section names + value matching; this test pins the
+        // contract: lowercase section + mixed-case value → canonical "Dark".
+        File.WriteAllText(IniPath,
+            "[appearance]\r\nThemeMode=dArK\r\n");
+
+        var cfg = new ConfigManager(IniPath);
+        cfg.Load();
+        Assert.AreEqual("Dark", cfg.ThemeMode);
+    }
+
+    [TestMethod]
     public void Load_TreatsLockedOrUnreadableFileAsDefaults()
     {
         // Write a deliberately unparseable INI. The file is readable but the

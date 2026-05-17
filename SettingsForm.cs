@@ -16,6 +16,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _chkBeep;
     private readonly CheckBox _chkStartup;
     private readonly NumericUpDown _nudPollInterval;
+    private readonly ComboBox _cboTheme;
     private readonly System.Drawing.Font _formFont;
     private readonly System.Drawing.Font _boldFont;
 
@@ -97,6 +98,40 @@ internal sealed class SettingsForm : Form
         yRight += 26;
 
         _chkStartup = AddCheckBox(startupText, StartupManager.IsEnabled, StartupHdrX + 12, ref yRight);
+
+        // Theme dropdown — placed directly under the "Run at Windows startup"
+        // checkbox in the same right column. Restart-to-apply: the GDI brush
+        // and pen caches in BoldSegmentRenderer/OsdForm/HelpForm capture
+        // Theme.* on first class load, so a live swap would leave a mixed
+        // palette behind. ApplySettings shows a longer-dwell OSD when this
+        // value changes to flag the restart requirement to the user.
+        const int ThemeLabelX = StartupHdrX + 12;
+        var lblTheme = new Label
+        {
+            Text = "Theme:",
+            Location = new(ThemeLabelX, yRight + 4),
+            AutoSize = true,
+            ForeColor = Theme.FgColor,
+        };
+        Controls.Add(lblTheme);
+
+        _cboTheme = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            // Sits to the right of the "Theme:" label on the same row. Width
+            // 100 keeps the dropdown inside the right column (form is 480
+            // wide, column starts at 210, so right edge of column is ~464).
+            Location = new(ThemeLabelX + 50, yRight),
+            Size = new(100, 24),
+            ForeColor = Theme.FgColor,
+            BackColor = Theme.EditBgColor,
+            FlatStyle = FlatStyle.Flat,
+        };
+        _cboTheme.Items.AddRange(new object[] { "System", "Dark", "Light" });
+        int themeIdx = _cboTheme.Items.IndexOf(config.ThemeMode);
+        _cboTheme.SelectedIndex = themeIdx >= 0 ? themeIdx : 0; // fall back to System on unknown
+        Controls.Add(_cboTheme);
+        yRight += 30;
 
         int y = Math.Max(yLeft, yRight);
 
@@ -240,15 +275,16 @@ internal sealed class SettingsForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // Flip the titlebar to dark BEFORE the window becomes visible (handle
-        // creation precedes the first WM_NCPAINT). Try the modern attribute
+        // Match the titlebar to the active chrome theme BEFORE the window
+        // becomes visible (handle creation precedes the first WM_NCPAINT).
+        // dark=1 = dark titlebar, dark=0 = light. Try the modern attribute
         // first (20, Win10 20H1+ and Win11). Only fall back to the legacy
         // attribute 19 (the undocumented Win10 1809–19H2 path) if attribute
         // 20 was rejected — defensive against a hypothetical future DWM
         // build that gives attribute 19 a different meaning. On pre-1809
         // Win10 both calls fail silently and the form keeps its default
-        // light titlebar — no functional impact.
-        int dark = 1;
+        // titlebar — no functional impact.
+        int dark = Theme.IsDark ? 1 : 0;
         int hr = NativeMethods.DwmSetWindowAttribute(
             Handle,
             NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE,
@@ -272,11 +308,12 @@ internal sealed class SettingsForm : Form
             Checked = isChecked,
             Location = new(x, y),
             AutoSize = true,
-            // Pure white instead of Theme.FgColor — at 9pt the Catppuccin
-            // Text shade (#CDD6F3) renders thin against the dark background,
-            // especially through FlatStyle.Flat's grayscale-AA path. White
-            // gives the small-glyph contrast the user asked for.
-            ForeColor = System.Drawing.Color.White,
+            // Dark mode uses pure white (the Catppuccin Text shade #CDD6F3
+            // renders thin against the dark BG at 9pt through FlatStyle.Flat's
+            // grayscale-AA path — white gives the small-glyph contrast we
+            // need). Light mode just uses the normal Fg colour; dark text on
+            // a light background reads fine without the boost.
+            ForeColor = Theme.CheckboxFgColor,
             BackColor = Theme.BgColor,
             // FlatStyle.Flat switches the CheckBox to a render path that
             // respects ForeColor for the tick glyph. The default
@@ -315,7 +352,8 @@ internal sealed class SettingsForm : Form
         _app.ApplySettings(
             _chkCaps.Checked, _chkNum.Checked, _chkScroll.Checked,
             _chkOSD.Checked, _chkBeep.Checked, _chkStartup.Checked,
-            (int)_nudPollInterval.Value);
+            (int)_nudPollInterval.Value,
+            (_cboTheme.SelectedItem as string) ?? "System");
     }
 
     private HelpForm? _helpForm;

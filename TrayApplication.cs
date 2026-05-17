@@ -55,7 +55,12 @@ internal sealed class TrayApplication : Form
     // reads/writes are atomic on x64 which is the only platform we target.
     private long _toggleInFlightUntilTicks;
 
-    private readonly BoldSegmentRenderer _menuRenderer = new();
+    // Assigned in the constructor body — NOT a field initializer. Field
+    // initializers run before the constructor body, but BoldSegmentRenderer's
+    // static GDI brush/pen cache captures Theme.* colours at first class
+    // touch. Theme.Initialize() must precede that first touch, so we hold
+    // off on `new BoldSegmentRenderer()` until after Theme is configured.
+    private readonly BoldSegmentRenderer _menuRenderer;
 
     // Cache struct size — Marshal.SizeOf uses reflection internally
     private static readonly uint NidSize = (uint)Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>();
@@ -75,8 +80,17 @@ internal sealed class TrayApplication : Form
         string iniPath = Path.Combine(exeDir ?? ".", "CapsNumTray.ini");
         _config = new ConfigManager(iniPath);
 
-        // Theme detection
-        bool lightTheme = DetectLightTheme();
+        // Resolve window-chrome theme from the user's saved pref + OS state,
+        // then lock the palette in BEFORE BoldSegmentRenderer is constructed
+        // (its static GDI cache captures Theme.* on first class touch).
+        Theme.Initialize(Theme.ResolveIsDark(_config.ThemeMode));
+        _menuRenderer = new BoldSegmentRenderer();
+
+        // Tray-icon theme — independent of the user's window-chrome pin. The
+        // _Light .ico variants are designed for a light taskbar, so they
+        // follow the OS theme directly (the chrome pin only swaps dialog
+        // colours, not which tray-icon variant is loaded).
+        bool lightTheme = Theme.IsSystemLightTheme();
 
         // Icons
         _icons = new IconManager(Handle, lightTheme);
@@ -145,7 +159,7 @@ internal sealed class TrayApplication : Form
         {
             BeginInvoke(() =>
             {
-                _icons.ReloadForTheme(DetectLightTheme());
+                _icons.ReloadForTheme(Theme.IsSystemLightTheme());
                 SyncIcons(force: true);
             });
         }
@@ -176,20 +190,9 @@ internal sealed class TrayApplication : Form
         catch (InvalidOperationException) { }
     }
 
-    private static bool DetectLightTheme()
-    {
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            object? val = key?.GetValue("SystemUsesLightTheme");
-            return val is int i && i == 1;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    // OS theme detection moved to Theme.IsSystemLightTheme so the chrome
+    // resolver (Theme.ResolveIsDark) and the tray-icon code can share one
+    // implementation. Callsites here use Theme.IsSystemLightTheme() directly.
 
     // ── Prevent Application.Run() from showing the form ────────────────────
     // Application.Run(form) internally sets Visible = true, which shows a
@@ -582,7 +585,8 @@ internal sealed class TrayApplication : Form
     }
 
     internal void ApplySettings(bool showCaps, bool showNum, bool showScroll,
-        bool showOSD, bool beepOnToggle, bool runAtStartup, int pollInterval)
+        bool showOSD, bool beepOnToggle, bool runAtStartup, int pollInterval,
+        string themeMode)
     {
         // Guard: at least one visible
         if (!showCaps && !showNum && !showScroll)
@@ -603,13 +607,75 @@ internal sealed class TrayApplication : Form
         _config.ShowOSD = showOSD;
         _config.BeepOnToggle = beepOnToggle;
         _config.PollInterval = pollInterval;
+
+        // Theme is restart-to-apply (the GDI brush/pen caches in
+        // BoldSegmentRenderer + OsdForm + HelpForm captured Theme.* at first
+        // class load and can't be invalidated without a process restart).
+        // All other settings stay instant-apply.
+        bool themeChanged = !string.Equals(_config.ThemeMode, themeMode, System.StringComparison.OrdinalIgnoreCase);
+        _config.ThemeMode = themeMode;
+
         _config.Save();
 
         ApplyPollInterval(pollInterval);
 
         StartupManager.SetEnabled(runAtStartup);
 
-        OsdForm.ShowOsd("Settings saved.", 3000);
+        if (themeChanged && TryAutoRestartForTheme())
+        {
+            // Replacement process has been launched; we're about to exit.
+            // Don't show an OSD on the dying instance — the new instance shows
+            // its own "Theme applied" OSD ~800ms post-launch (Program.cs).
+            return;
+        }
+
+        OsdForm.ShowOsd(
+            themeChanged ? "Settings saved — theme applies on next launch." : "Settings saved.",
+            themeChanged ? 4000 : 3000);
+    }
+
+    /// <summary>
+    /// Spawn a replacement process with --after-theme-restart, then call
+    /// Application.Exit on success. The save has already happened by the time
+    /// this is called, so other settings made in the same Apply are persisted
+    /// (the new process will load them on startup).
+    ///
+    /// Order matters: spawn BEFORE exit. If Process.Start throws (locked exe,
+    /// AV scan, missing exe path), we return false and fall back to the
+    /// manual-restart OSD — the user is never left with no tray.
+    /// </summary>
+    private static bool TryAutoRestartForTheme()
+    {
+        var exePath = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(exePath))
+        {
+            System.Diagnostics.Trace.WriteLine(
+                "CapsNumTray: theme auto-restart skipped — Environment.ProcessPath was null/empty");
+            return false;
+        }
+        try
+        {
+            // nosemgrep: gitlab.security_code_scan.SCS0001-1 -- exePath is Environment.ProcessPath (our own executable, not user-supplied)
+            using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath)
+            {
+                Arguments = "--after-theme-restart",
+                UseShellExecute = true,
+            });
+            if (p == null)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    "CapsNumTray: theme auto-restart — Process.Start returned null; staying open for manual restart");
+                return false;
+            }
+            Application.Exit();
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine(
+                $"CapsNumTray: theme auto-restart failed (err={ex.GetType().Name}: {ex.Message}) — staying open for manual restart");
+            return false;
+        }
     }
 
     // ── Shell_NotifyIconW Wrappers ─────────────────────────────────────────

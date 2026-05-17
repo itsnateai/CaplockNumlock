@@ -6,15 +6,19 @@ internal static class Program
     static void Main(string[] args)
     {
         bool isAfterUpdate = args.Contains("--after-update");
+        // --after-theme-restart: dispatched by TrayApplication when the user
+        // changes the Theme dropdown. Same mutex-retry treatment as --after-update
+        // because we're racing the outgoing instance for the single-instance lock.
+        bool isAfterThemeRestart = args.Contains("--after-theme-restart");
 
-        // Single-instance: hold mutex for lifetime. Post-update the outgoing exe
-        // needs a moment to release the mutex, so retry briefly in that case.
-        // Local\ scope — the tray is inherently per-session (icons live in the
-        // session's explorer.exe), so Global\ would let user A block user B on
-        // multi-session machines (RDS, fast user switching).
+        // Single-instance: hold mutex for lifetime. Post-update / post-theme-restart
+        // the outgoing exe needs a moment to release the mutex, so retry briefly
+        // in those cases. Local\ scope — the tray is inherently per-session (icons
+        // live in the session's explorer.exe), so Global\ would let user A block
+        // user B on multi-session machines (RDS, fast user switching).
         Mutex mutex;
         bool createdNew;
-        int remainingRetries = isAfterUpdate ? 50 : 0;
+        int remainingRetries = (isAfterUpdate || isAfterThemeRestart) ? 50 : 0;
         while (true)
         {
             try
@@ -47,6 +51,8 @@ internal static class Program
 
         if (isAfterUpdate)
             UpdateDialog.ShowUpdateToast();
+        if (isAfterThemeRestart)
+            OsdForm.ShowDelayedOsd("Theme applied.", delayMs: 800, dwellMs: 1800);
 
         using var app = new TrayApplication();
         Application.Run(app);
