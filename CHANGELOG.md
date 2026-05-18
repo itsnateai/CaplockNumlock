@@ -4,6 +4,32 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.7] — 2026-05-17
+
+### Changed — Light palette rewritten to v2.1.x brand-blue feel
+
+The Light theme's Catppuccin Latte palette shipped in 2.4.6 read as a cool blue-grey tint that fought the warm-neutral Mocha dark mode. Rewritten slot-for-slot to match the v2.1.x feel pixel-for-pixel on the slots the original had:
+
+- `Bg` `#FFFFFF` (pure white, was Latte crust `#DCE0E8`)
+- `Fg` `#1E1E1E` (near-black, was Latte text `#4C4F69`)
+- `AccentBlue` `#2255AA` (brand blue for section headers — Help/Settings — was Latte blue `#1E66F5`)
+- `HighlightBg` `#FFF8DC` (cornsilk focus tint, was Latte surface0 `#CCD0DA`)
+- `EditBg` `#F5F5F5` faint inset (was Latte mantle `#E6E9EF`)
+- `Divider` `#D0D0D0` (was Latte surface1 `#BCC0CC`)
+- `Dim` `#606060` (was Latte subtext1 `#5C5F77`)
+- `FgDisabled` `#A0A0A0` (was Latte overlay0 `#9CA0B0`)
+- `AccentGreen` `#2E7D32` Material green 800, 5.13:1 on white (was Latte green `#40A02B`)
+- `AccentWarn` `#C62828` Material red 800, 5.62:1 on white (was Latte red `#D20F39`)
+
+Cornsilk is a warm-tint focus accent — luminance vs pure-white is only ~1.07:1 by design (matches the v2.1.x feel). Callers pair `HighlightBg` with `Divider`-stroke borders or Fg-coloured glyphs for state; the cornsilk fill carries the focus/hover cue via temperature, not brightness. Caveat: this cue is invisible to tritan users (blue-yellow CVD, ~0.01% prevalence) — secondary cues (border weight, glyph) carry the load there.
+
+Dark palette (Catppuccin Mocha) is unchanged.
+
+### Notes
+
+- Slot semantics, accessor properties, INI format, and ConfigManager are all untouched — fully forward-compatible. The self-updater path is the same as 2.4.6.
+- Restart-to-apply still holds: GDI brush/pen caches in `BoldSegmentRenderer`, `OsdForm`, and `HelpForm` capture `Theme.*` at first class load. The `--after-theme-restart` auto-relaunch flow from 2.4.6 handles this when the user toggles theme via Settings.
+
 ## [2.4.6] — 2026-05-16
 
 ### Added — User-selectable window-chrome theme

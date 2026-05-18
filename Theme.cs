@@ -2,8 +2,9 @@ namespace CapsNumTray;
 
 /// <summary>
 /// Theme palette for window chrome (Settings, Help, Update, OSD, context menu).
-/// Two palettes — Catppuccin Mocha (Dark) and Latte (Light) — selected once at
-/// startup via <see cref="Initialize"/> based on the user's saved preference
+/// Two palettes — Catppuccin Mocha (Dark) and a v2.1.x-style brand-blue light
+/// palette (pure-white BG / near-black text / cornsilk focus tint) — selected
+/// once at startup via <see cref="Initialize"/> based on the user's saved preference
 /// (resolved through <see cref="ResolveIsDark"/>). The active palette is then
 /// exposed via the static colour properties (BgColor, FgColor, etc.) that all
 /// chrome surfaces read from.
@@ -137,42 +138,37 @@ internal static class Theme
         public static readonly System.Drawing.Color AccentWarn  = System.Drawing.Color.FromArgb(0xFA, 0xB3, 0x87);
     }
 
-    // ── Light palette — Catppuccin Latte ───────────────────────────────────
-    // Latte is Mocha's canonical light counterpart; slot-for-slot semantics so
-    // the layout code that worked against Mocha keeps working against Latte
-    // without any tuning. EditBg = mantle (slightly darker than base) so input
-    // fields read as inset against the form BG — matches the dark mode's
-    // EditBg-darker-than-Bg relationship.
+    // ── Light palette — v2.1.x brand revival ───────────────────────────────
+    // Pure-white BG / near-black text / brand-blue headers / cornsilk focus
+    // tint — matches the original v2.1.x feel pixel-for-pixel on the slots
+    // that existed before the v2.4.x dual-theme refactor. Replaces the
+    // Catppuccin Latte palette which read as a cool blue-grey tint that hurt
+    // the user's eyes against the dark mode's warm-neutral Mocha. Slot
+    // semantics unchanged: HighlightBg is still the focus tint, EditBg is
+    // still slightly recessed against Bg.
     private static class Light
     {
-        // Bg = crust (the darkest of Latte's three neutral tiers), not base.
-        // First-user feedback on the v2.4.6 pre-ship build was that the canonical
-        // Latte base (#EFF1F5, ~91% relative luminance) read as "burn your eyes
-        // bright white" at Settings-dialog dimensions — fine for code-editor body
-        // text (Latte's intended use case) but too brilliant for an OS dialog
-        // taking up screen real-estate. Crust drops perceived luminance ~13%
-        // and is still a clean Catppuccin grey, with the bonus that every other
-        // palette slot's contrast against the BG *improves* (AccentWarn red
-        // 3.9:1 → 5.5:1, Fg 7.7:1 → 5.5:1 — still strictly WCAG AA on all).
-        public static readonly System.Drawing.Color Bg          = System.Drawing.Color.FromArgb(0xDC, 0xE0, 0xE8); // crust
-        public static readonly System.Drawing.Color Fg          = System.Drawing.Color.FromArgb(0x4C, 0x4F, 0x69); // text
-        public static readonly System.Drawing.Color FgDisabled  = System.Drawing.Color.FromArgb(0x9C, 0xA0, 0xB0); // overlay0
-        // Dim = subtext1 (#5C5F77, ~5.6:1 against base) rather than subtext0
-        // (#7C7F93, ~4.0:1). subtext0 was borderline-failing WCAG AA for the
-        // italic 9.5pt _lblDetail in UpdateDialog where Dim shows up; subtext1
-        // is still a Latte palette slot but reads cleanly at small italic sizes.
-        public static readonly System.Drawing.Color Dim         = System.Drawing.Color.FromArgb(0x5C, 0x5F, 0x77); // subtext1
-        public static readonly System.Drawing.Color HighlightBg = System.Drawing.Color.FromArgb(0xCC, 0xD0, 0xDA); // surface0
-        public static readonly System.Drawing.Color EditBg      = System.Drawing.Color.FromArgb(0xE6, 0xE9, 0xEF); // mantle
-        public static readonly System.Drawing.Color Divider     = System.Drawing.Color.FromArgb(0xBC, 0xC0, 0xCC); // surface1
-        public static readonly System.Drawing.Color AccentBlue  = System.Drawing.Color.FromArgb(0x1E, 0x66, 0xF5); // blue
-        public static readonly System.Drawing.Color AccentGreen = System.Drawing.Color.FromArgb(0x40, 0xA0, 0x2B); // green
-        // Warning accent = Latte red (#D20F39), not peach (#FE640B). Peach on
-        // base #EFF1F5 is ~2.7:1 — fails WCAG AA on the UpdateDialog error path
-        // (_lblStatus.ForeColor = Theme.AccentWarn). Red has both better contrast
-        // (~3.9:1) AND the correct semantic for error states. Dark mode keeps
-        // peach (#FAB387) because contrast against a dark BG isn't the bottleneck
-        // there.
-        public static readonly System.Drawing.Color AccentWarn  = System.Drawing.Color.FromArgb(0xD2, 0x0F, 0x39); // red
+        public static readonly System.Drawing.Color Bg          = System.Drawing.Color.FromArgb(0xFF, 0xFF, 0xFF); // pure white
+        public static readonly System.Drawing.Color Fg          = System.Drawing.Color.FromArgb(0x1E, 0x1E, 0x1E); // near-black text
+        // FgDisabled is intentionally low-contrast (~2.6:1 on Bg). WCAG SC 1.4.3
+        // exempts disabled controls; Win11 Fluent uses ~38% opacity (≈ #A0A0A0)
+        // for the same purpose. The slot's job is "render as disabled", not
+        // "remain readable".
+        public static readonly System.Drawing.Color FgDisabled  = System.Drawing.Color.FromArgb(0xA0, 0xA0, 0xA0);
+        public static readonly System.Drawing.Color Dim         = System.Drawing.Color.FromArgb(0x60, 0x60, 0x60); // 6.29:1 on white
+        // HighlightBg is a WARM-tint focus accent (yellow-channel hue shift),
+        // not a luminance differentiator — cornsilk vs pure-white is ~1.07:1
+        // by luminance alone. That's by-design (matches the v2.1.x feel) and
+        // works because callers pair it with Divider borders or Fg-coloured
+        // glyphs for state; the cornsilk fill carries the "focus/hover" cue
+        // via temperature, not brightness. Caveat: this cue is invisible to
+        // tritan users (blue-yellow CVD, ~0.01% prevalence) — secondary state
+        // cues (border weight, glyph) carry the load there.
+        public static readonly System.Drawing.Color HighlightBg = System.Drawing.Color.FromArgb(0xFF, 0xF8, 0xDC); // cornsilk focus tint
+        public static readonly System.Drawing.Color EditBg      = System.Drawing.Color.FromArgb(0xF5, 0xF5, 0xF5); // faint inset against white BG
+        public static readonly System.Drawing.Color Divider     = System.Drawing.Color.FromArgb(0xD0, 0xD0, 0xD0);
+        public static readonly System.Drawing.Color AccentBlue  = System.Drawing.Color.FromArgb(0x22, 0x55, 0xAA); // brand blue — section headers, 7.12:1 on white
+        public static readonly System.Drawing.Color AccentGreen = System.Drawing.Color.FromArgb(0x2E, 0x7D, 0x32); // Material green 800, 5.13:1 on white (AA pass)
+        public static readonly System.Drawing.Color AccentWarn  = System.Drawing.Color.FromArgb(0xC6, 0x28, 0x28); // Material red 800, 5.62:1 on white (AA pass)
     }
 }
