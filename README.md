@@ -1,5 +1,7 @@
 # CapsNumTray
 
+[![GitHub downloads](https://img.shields.io/github/downloads/itsnateai/CaplockNumlock/total?label=downloads&color=brightgreen)](https://github.com/itsnateai/CaplockNumlock/releases)
+
 *LTR — Long-Term Release · one-click self-update built in.*
 
 Caps Lock, Num Lock, and Scroll Lock tray indicators for Windows.
