@@ -4,6 +4,17 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.9] — 2026-06-04
+
+### Fixed — Update dialog progress-bar fill height at 125%/150% scaling
+
+Fast-follow to 2.4.8. Now that the Update dialog correctly scales its window at high
+DPI, the download/checking progress **fill** was still sized to a hardcoded 18px height
+while the surrounding bar scaled (≈27px at 150%), leaving the green fill short of the
+bar's interior. The fill now tracks the bar's realized height at any scale. Also
+corrected a stale comment that implied `AutoScaleMode.Dpi` scales a manually-assigned
+`ClientSize` (it doesn't — the size is pinned in `OnLoad`).
+
 ## [2.4.8] — 2026-06-04
 
 ### Fixed — Settings & Update dialogs clipped at 125%/150% display scaling

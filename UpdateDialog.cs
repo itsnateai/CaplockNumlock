@@ -66,9 +66,10 @@ internal sealed class UpdateDialog : Form
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         // Fixed-width status dialog — the status text changes at runtime, so the
-        // width stays put rather than reflowing. AutoScaleMode.Dpi scales the
-        // ClientSize from this 96-DPI baseline; the layout containers below keep
-        // the content centred and the buttons bottom-aligned at any scale.
+        // width stays put rather than reflowing. This 96-DPI ClientSize is only
+        // the initial canvas; the real DPI-correct size is pinned in OnLoad
+        // (AutoScaleMode.Dpi does NOT scale a manually-assigned ClientSize — that
+        // was the bug). The layout containers below keep the content centred.
         ClientSize = new Size(420, 180);
 
         _boldFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
@@ -196,7 +197,10 @@ internal sealed class UpdateDialog : Form
             if (_marqueePos + barW >= _progressOuter.Width) _marqueeForward = false;
             if (_marqueePos <= 0) _marqueeForward = true;
             _progressFill.Location = new Point(_marqueePos, 0);
-            _progressFill.Size = new Size(barW, 18);
+            // Track the outer bar's realized (DPI-scaled) height, not a literal —
+            // once the window scales at 150% the outer is ~27px, a hardcoded 18
+            // would leave the green fill short of the bar interior.
+            _progressFill.Size = new Size(barW, _progressOuter.Height);
         };
 
         Shown += async (_, _) =>
@@ -347,7 +351,7 @@ internal sealed class UpdateDialog : Form
     private void ShowVersionComparison()
     {
         _marqueeTimer.Stop();
-        _progressFill.Size = new Size(0, 18);
+        _progressFill.Size = new Size(0, _progressOuter.Height);
         _progressFill.Location = new Point(0, 0);
 
         var localVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
@@ -549,7 +553,7 @@ internal sealed class UpdateDialog : Form
                 if (IsDisposed) return;
                 int pct = (int)(downloaded * 100 / totalBytes);
                 _progressFill.Size = new Size(
-                    (int)(_progressOuter.Width * downloaded / totalBytes), 18);
+                    (int)(_progressOuter.Width * downloaded / totalBytes), _progressOuter.Height);
                 var dlMB = downloaded / (1024.0 * 1024.0);
                 var totalMB = totalBytes / (1024.0 * 1024.0);
                 _lblDetail.Text = totalMB < 1
