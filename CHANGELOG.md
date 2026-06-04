@@ -4,6 +4,21 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.8] — 2026-06-04
+
+### Fixed — Settings & Update dialogs clipped at 125%/150% display scaling
+
+The Settings and Update dialogs were laid out with absolute control coordinates and a hand-tuned `ClientSize`. At 125%/150% Windows display scaling, `AutoScaleMode.Dpi` grew the fonts but not the window bounds reliably — so the **OK / Apply / Cancel** row in Settings and both buttons in the Update dialog were clipped off the bottom (and Settings also wasted a wide empty right margin). Verified at a real 150% scale on a dedicated test VM (Settings renders pixel-consistently: 362×380 at 100%, 544×570 at 150%) — and re-confirmed unchanged at 100%.
+
+- **Settings** rebuilt on layout containers (`TableLayoutPanel` / `FlowLayoutPanel` + `AutoSize`) — no pixel coordinates left to mis-scale. The width now fits the content and both button rows are full-width equal grids.
+- **Update** rebuilt on a stacked container with a centred button host, which also retired three runtime device-pixel "re-centre the lone button" hacks. The window is pinned to the DPI-scaled size so content no longer overflows.
+- **Help** and the **OSD tooltip** were verified correct at 150% and left unchanged.
+- `PerMonitorV2` high-DPI mode retained (correct for a standalone tray app).
+
+### Added (developer-only)
+
+- A `--diag-render-form` Debug harness (`DiagRender.cs`, compiled out of Release) that renders each window to a PNG at the real display DPI, enabling visual 100%-vs-150% diffing on a high-DPI test bed.
+
 ## [2.4.7] — 2026-05-17
 
 ### Changed — Light palette rewritten to v2.1.x brand-blue feel

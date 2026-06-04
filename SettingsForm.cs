@@ -1,13 +1,26 @@
 namespace CapsNumTray;
 
 /// <summary>
-/// Settings dialog matching the AHK GUI: visibility checkboxes, feedback options,
-/// startup toggle, and OK/Apply/Cancel buttons.
+/// Settings dialog: visibility checkboxes, feedback options, startup toggle,
+/// theme selector, fallback poll interval, and utility/action button rows.
+///
+/// Layout is built entirely from relational containers (TableLayoutPanel /
+/// FlowLayoutPanel + AutoSize), NOT absolute coordinates. There are no pixel
+/// literals for the framework to mis-scale, so the form is correct by
+/// construction at 100%, 125%, 150%, 175% — any DPI. (AutoScaleMode.Dpi grows
+/// fonts and the frame; relational layout is what keeps the controls in step.)
+/// PerMonitorV2 (set via the manifest / csproj) is correct for this standalone
+/// app — do NOT switch to SystemAware (that's an EQSwitch-only carve-out for
+/// its injected child windows).
 /// </summary>
 internal sealed class SettingsForm : Form
 {
     private readonly ConfigManager _config;
-    private readonly TrayApplication _app;
+    // Nullable only to support the DEBUG render harness, which builds the form
+    // standalone to capture its layout. In every production path SettingsForm is
+    // constructed by TrayApplication with `this`, so _app is never null when a
+    // user can reach Apply().
+    private readonly TrayApplication? _app;
 
     private readonly CheckBox _chkCaps;
     private readonly CheckBox _chkNum;
@@ -19,31 +32,24 @@ internal sealed class SettingsForm : Form
     private readonly ComboBox _cboTheme;
     private readonly System.Drawing.Font _formFont;
     private readonly System.Drawing.Font _boldFont;
+    // Root container, kept so OnLoad can size the window to the REALIZED
+    // (post-DPI-scale) content — measuring in the ctor happens at 96 DPI and
+    // under-provisions the height at 150%.
+    private readonly TableLayoutPanel _root;
 
-    public SettingsForm(ConfigManager config, TrayApplication app)
+    public SettingsForm(ConfigManager config, TrayApplication? app)
     {
         _config = config;
         _app = app;
 
-        // Three first-show lag mitigations applied here, top-to-bottom:
-        //
-        //   1. OptimizedDoubleBuffer + AllPaintingInWmPaint + UserPaint
-        //      Eliminates the per-child-control paint flicker. Without this,
-        //      each Controls.Add below paints immediately on a CPU-side surface;
-        //      with it, the whole form paints once into an off-screen buffer
-        //      then blits in a single GDI BitBlt \u2014 much less visible "settling."
-        //
-        //   2. SuspendLayout() bracketing the constructor
-        //      Each Controls.Add triggers a layout pass on the parent form.
-        //      We add ~20 controls (6 checkboxes, 4 section labels, 1 NUD,
-        //      1 helper label, 6 buttons, 2 NUD-companion labels) so without
-        //      SuspendLayout this is ~20 layout passes for nothing \u2014 ResumeLayout
-        //      (true) collapses them into one final layout at the end.
-        //
-        //   3. DWMWA_USE_IMMERSIVE_DARK_MODE in OnHandleCreated (below)
-        //      The biggest perceived-lag fix. Without it the OS shows a default
-        //      LIGHT titlebar attached to a dark body for a frame or two before
-        //      DWM repaints, which reads as the form "popping in then settling."
+        // First-show lag mitigations (unchanged from the absolute-layout version):
+        //   1. OptimizedDoubleBuffer + AllPaintingInWmPaint + UserPaint — paint
+        //      the whole tree once into an off-screen buffer, then blit, instead
+        //      of per-child paint flicker.
+        //   2. SuspendLayout/ResumeLayout — collapse the ~6 container adds into a
+        //      single final layout pass.
+        //   3. DWMWA_USE_IMMERSIVE_DARK_MODE in OnHandleCreated — dark titlebar
+        //      before first WM_NCPAINT so the frame doesn't flash light.
         SetStyle(
             ControlStyles.OptimizedDoubleBuffer |
             ControlStyles.AllPaintingInWmPaint |
@@ -51,239 +57,180 @@ internal sealed class SettingsForm : Form
             true);
         SuspendLayout();
 
-        Text = "CapsNumTray v" + TrayApplication.Version + " \u2014 Settings";
+        Text = "CapsNumTray v" + TrayApplication.Version + " — Settings";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         TopMost = true;
-        // Hide from the taskbar \u2014 Settings is an auxiliary dialog reached via
-        // tray right-click, not a top-level workspace window. Bonus: Windows
-        // skips the taskbar-button registration step (which is what was causing
-        // the visible "pop in" delay), so the form appears noticeably faster.
+        // Hide from the taskbar — Settings is an auxiliary dialog reached via the
+        // tray right-click, and skipping the taskbar-button registration makes it
+        // appear noticeably faster.
         ShowInTaskbar = false;
         BackColor = Theme.BgColor;
         ForeColor = Theme.FgColor;
         StartPosition = FormStartPosition.CenterScreen;
-        // Pin design baseline to 96 DPI BEFORE setting AutoScaleMode so every
-        // literal Size/Point/Location below is interpreted as 96-DPI design
-        // pixels regardless of which monitor first realizes this form.
-        // Without this, the form gets double-scaled on 125%/150% laptops and
-        // button bottom borders / NumericUpDown digits clip.
+        // Pin the design baseline to 96 DPI BEFORE setting AutoScaleMode so the
+        // form scales uniformly from 96 regardless of which monitor first
+        // realizes it (no double-scale on a 125%/150% laptop).
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         _formFont = new System.Drawing.Font("Segoe UI", 9f);
         Font = _formFont;
         _boldFont = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
 
-        const int PollInputX = 320;
+        // ── Controls ──────────────────────────────────────────────────────
+        _chkCaps    = MakeCheckBox("Show Caps Lock icon", config.ShowCaps);
+        _chkNum     = MakeCheckBox("Show Num Lock icon", config.ShowNum);
+        _chkScroll  = MakeCheckBox("Show Scroll Lock icon", config.ShowScroll);
+        _chkStartup = MakeCheckBox("Run at Windows startup", StartupManager.IsEnabled);
+        _chkOSD     = MakeCheckBox("Show OSD tooltip on toggle", config.ShowOSD);
+        _chkBeep    = MakeCheckBox("Beep on toggle", config.BeepOnToggle);
 
-        int yLeft = 16;
-        int yRight = 16;
-
-        // ── Tray Icons (left column, top) ──
-        var lblIcons = new Label { Text = "Tray Icons", Location = new(16, yLeft), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
-        Controls.Add(lblIcons);
-        yLeft += 26;
-
-        _chkCaps = AddCheckBox("Show Caps Lock icon", config.ShowCaps, 28, ref yLeft);
-        _chkNum = AddCheckBox("Show Num Lock icon", config.ShowNum, 28, ref yLeft);
-        _chkScroll = AddCheckBox("Show Scroll Lock icon", config.ShowScroll, 28, ref yLeft);
-
-        // ── Startup (right column, top) ──
-        const string startupText = "Run at Windows startup";
-        const int StartupHdrX = 210;
-
-        var lblStartup = new Label { Text = "Startup", Location = new(StartupHdrX, yRight), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
-        Controls.Add(lblStartup);
-        yRight += 26;
-
-        _chkStartup = AddCheckBox(startupText, StartupManager.IsEnabled, StartupHdrX + 12, ref yRight);
-
-        // Theme dropdown — placed directly under the "Run at Windows startup"
-        // checkbox in the same right column. Restart-to-apply: the GDI brush
-        // and pen caches in BoldSegmentRenderer/OsdForm/HelpForm capture
-        // Theme.* on first class load, so a live swap would leave a mixed
-        // palette behind. ApplySettings shows a longer-dwell OSD when this
-        // value changes to flag the restart requirement to the user.
-        const int ThemeLabelX = StartupHdrX + 12;
         var lblTheme = new Label
         {
             Text = "Theme:",
-            Location = new(ThemeLabelX, yRight + 4),
             AutoSize = true,
             ForeColor = Theme.FgColor,
+            // Indent to line up under the "Run at Windows startup" checkbox; top
+            // margin nudges the caption onto the combo's text baseline.
+            Margin = new Padding(16, 6, 4, 2),
         };
-        Controls.Add(lblTheme);
-
         _cboTheme = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            // Sits to the right of the "Theme:" label on the same row. Width
-            // 100 keeps the dropdown inside the right column (form is 480
-            // wide, column starts at 210, so right edge of column is ~464).
-            Location = new(ThemeLabelX + 50, yRight),
-            Size = new(100, 24),
             ForeColor = Theme.FgColor,
             BackColor = Theme.EditBgColor,
             FlatStyle = FlatStyle.Flat,
+            // Fits the longest item ("System") + the dropdown arrow at 96 DPI;
+            // AutoScaleMode.Dpi widens it proportionally at higher scales.
+            Width = 92,
+            Margin = new Padding(0, 3, 4, 2),
         };
         _cboTheme.Items.AddRange(new object[] { "System", "Dark", "Light" });
         int themeIdx = _cboTheme.Items.IndexOf(config.ThemeMode);
-        _cboTheme.SelectedIndex = themeIdx >= 0 ? themeIdx : 0; // fall back to System on unknown
-        Controls.Add(_cboTheme);
-        yRight += 30;
+        _cboTheme.SelectedIndex = themeIdx >= 0 ? themeIdx : 0; // unknown -> System
 
-        int y = Math.Max(yLeft, yRight);
-
-        // ── Feedback ──
-        y += 10;
-        var lblFeedback = new Label { Text = "Feedback", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
-        Controls.Add(lblFeedback);
-        y += 26;
-
-        _chkOSD = AddCheckBox("Show OSD tooltip on toggle", config.ShowOSD, 28, ref y);
-        _chkBeep = AddCheckBox("Beep on toggle", config.BeepOnToggle, 28, ref y);
-
-        // ── Polling ──
-        y += 10;
-        var lblPolling = new Label { Text = "Polling", Location = new(16, y), AutoSize = true, Font = _boldFont, ForeColor = Theme.AccentBlue };
-        Controls.Add(lblPolling);
-        y += 26;
-
-        var lblPollDesc = new Label { Text = "Fallback poll interval (seconds, 0 = disabled):", Location = new(28, y + 2), AutoSize = true, ForeColor = Theme.FgColor };
-        Controls.Add(lblPollDesc);
+        var lblPollDesc = new Label
+        {
+            Text = "Fallback poll interval (seconds, 0 = disabled):",
+            AutoSize = true,
+            ForeColor = Theme.FgColor,
+            Margin = new Padding(16, 6, 4, 2),
+        };
         _nudPollInterval = new NumericUpDown
         {
             Minimum = 0,
             Maximum = 300,
             Value = config.PollInterval,
-            Location = new(PollInputX, y),
-            // Width 80 (not 60) — NumericUpDown's spinner band composes three
-            // nested HWNDs whose scaling diverges by a few px at every non-integer
-            // ratio; at 125% the spinner eats ~25px which collides with digits
-            // in a 60px-wide control. MinimumSize floor prevents AutoScale from
-            // shrinking the spinner back into the digit area at any scale factor.
-            Size = new(80, 26),
-            MinimumSize = new(80, 26),
             Increment = 5,
+            // Width sized for the 3-digit maximum ("300") + the spinner band,
+            // plus a small margin for the few-px scaling divergence of the NUD's
+            // nested HWNDs at non-integer DPI. Content-appropriate, not a blanket
+            // multiplier; AutoScaleMode.Dpi scales it from this 96-DPI baseline.
+            Width = 64,
+            MinimumSize = new System.Drawing.Size(64, 0),
             ForeColor = Theme.FgColor,
             BackColor = Theme.EditBgColor,
             BorderStyle = BorderStyle.FixedSingle,
             TextAlign = HorizontalAlignment.Left,
+            Margin = new Padding(8, 1, 4, 2),
         };
-        Controls.Add(_nudPollInterval);
-        // NumericUpDown is composed of two child controls: the inner text box
-        // (Controls[1]) and the spinner band (Controls[0]) — the spinner is an
-        // internal UpDownButtons HWND that paints its own background via
-        // ControlPaint and ignores its parent's BackColor. Without this assign
-        // the digit area is dark but the up/down arrow strip beside it is
-        // system-grey (visible split). Setting Controls[0].BackColor matches
-        // the band to the digit area; the arrow glyphs themselves stay
-        // system-rendered but read fine against the dark band.
+        // The spinner band (Controls[0]) is an internal UpDownButtons HWND that
+        // paints its own background and ignores the parent BackColor; tint it to
+        // match the digit area so there's no light/dark split.
         if (_nudPollInterval.Controls.Count > 0)
         {
             _nudPollInterval.Controls[0].BackColor = Theme.EditBgColor;
             _nudPollInterval.Controls[0].ForeColor = Theme.FgColor;
         }
-        y += 28;
 
-        // ── Buttons (two rows, each row fills horizontally with equal-width buttons) ──
-        y += 16;
-
-        const int FormWidth = 480;
-        // Equal padding: border|pad|btn|pad|btn|pad|btn|pad|border
-        // 4 * pad + 3 * btnW = FormWidth. With pad=12, btnW=144 → exactly 480.
-        const int BtnPad = 12;
-        const int BtnW = (FormWidth - 4 * BtnPad) / 3; // = 144
-
-        // Primary (bottom) row: full 144×28. Utility (top) row: smaller 120×26 for visual contrast.
-        // (TopBtnH was 24 — bottom border clipped at 125%+ scale; floor is 26 for 9pt Segoe UI per
-        // _.claude/_templates/snippets/csharp/winforms-dpi-scaling.md §6. Contrast preserved via
-        // the 24px width differential, not height.)
-        const int BotBtnH = 28;
-        const int TopBtnW = 120;
-        const int TopBtnH = 26;
-        const int TopBtnOffset = (BtnW - TopBtnW) / 2; // center each small button in its column slot
-
-        int col1X = BtnPad;
-        int col2X = col1X + BtnW + BtnPad;
-        int col3X = col2X + BtnW + BtnPad;
-
-        // Row 1 (top): utility — GitHub, Update, Help (smaller, centered in column slots)
-        int gitHubX = col1X + TopBtnOffset;
-        int updateX = col2X + TopBtnOffset;
-        int helpX   = col3X + TopBtnOffset;
-
-        var btnGitHub = new Button { Text = "GitHub", Location = new(gitHubX, y), Size = new(TopBtnW, TopBtnH) };
-        ThemeButton(btnGitHub);
-        btnGitHub.Click += (_, _) =>
+        var btnGitHub = MakeButton("GitHub", (_, _) =>
         {
             using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "https://github.com/itsnateai/CaplockNumlock",
                 UseShellExecute = true
             });
-        };
-        Controls.Add(btnGitHub);
-
-        var btnUpdate = new Button { Text = "Update", Location = new(updateX, y), Size = new(TopBtnW, TopBtnH) };
-        ThemeButton(btnUpdate);
-        btnUpdate.Click += (_, _) =>
+        });
+        var btnUpdate = MakeButton("Update", (_, _) =>
         {
             using var dlg = new UpdateDialog();
             dlg.ShowDialog(this);
+        });
+        var btnHelp   = MakeButton("Help", (_, _) => ShowHelpWindow());
+        var btnOK     = MakeButton("OK", (_, _) => { Apply(); Close(); });
+        var btnApply  = MakeButton("Apply", (_, _) => Apply());
+        var btnCancel = MakeButton("Cancel", (_, _) => Close());
+
+        // ── Compose with layout containers ────────────────────────────────
+        // Top: two equal columns — Tray Icons (left) | Startup + Theme (right).
+        // Anchored Left|Right so the 50/50 split spans the full content width.
+        var topRow = new TableLayoutPanel
+        {
+            ColumnCount = 2,
+            RowCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Theme.BgColor,
+            Margin = new Padding(0),
+            Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
         };
-        Controls.Add(btnUpdate);
+        topRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        topRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        topRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        topRow.Controls.Add(Column(SectionLabel("Tray Icons"), _chkCaps, _chkNum, _chkScroll), 0, 0);
+        topRow.Controls.Add(Column(SectionLabel("Startup"), _chkStartup, Row(lblTheme, _cboTheme)), 1, 0);
 
-        var btnHelp = new Button { Text = "Help", Location = new(helpX, y), Size = new(TopBtnW, TopBtnH) };
-        ThemeButton(btnHelp);
-        btnHelp.Click += (_, _) => ShowHelpWindow();
-        Controls.Add(btnHelp);
+        var feedback   = Column(SectionLabel("Feedback"), _chkOSD, _chkBeep);
+        var polling    = Column(SectionLabel("Polling"), Row(lblPollDesc, _nudPollInterval));
+        var utilityRow = ButtonRow(btnGitHub, btnUpdate, btnHelp);
+        var actionRow  = ButtonRow(btnOK, btnApply, btnCancel);
 
-        // Row 2 (bottom): actions — OK, Apply, Cancel (full-size, primary)
-        y += TopBtnH + BtnPad;
+        // Single-column stack. Explicit AutoSize column + per-row AutoSize styles
+        // so each row sizes to its content (a TableLayoutPanel with fewer styles
+        // than rows can otherwise leave later rows un-sized and clip them).
+        _root = new TableLayoutPanel
+        {
+            ColumnCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Theme.BgColor,
+            Padding = new Padding(12),
+        };
+        _root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        foreach (Control r in new Control[] { topRow, feedback, polling, utilityRow, actionRow })
+        {
+            _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _root.Controls.Add(r);
+        }
 
-        int okX     = col1X;
-        int applyX  = col2X;
-        int cancelX = col3X;
-
-        var btnOK = new Button { Text = "OK", Location = new(okX, y), Size = new(BtnW, BotBtnH) };
-        ThemeButton(btnOK);
-        btnOK.Click += (_, _) => { Apply(); Close(); };
-        Controls.Add(btnOK);
+        Controls.Add(_root);
         AcceptButton = btnOK;
-
-        var btnApply = new Button { Text = "Apply", Location = new(applyX, y), Size = new(BtnW, BotBtnH) };
-        ThemeButton(btnApply);
-        btnApply.Click += (_, _) => Apply();
-        Controls.Add(btnApply);
-
-        var btnCancel = new Button { Text = "Cancel", Location = new(cancelX, y), Size = new(BtnW, BotBtnH) };
-        ThemeButton(btnCancel);
-        btnCancel.Click += (_, _) => Close();
-        Controls.Add(btnCancel);
         CancelButton = btnCancel;
 
-        ClientSize = new System.Drawing.Size(FormWidth, y + BotBtnH + 16);
-
-        // ResumeLayout(true) — single layout pass for the whole tree instead of
-        // ~20 incremental ones. Must come AFTER ClientSize so the final layout
-        // sees the right form bounds.
         ResumeLayout(performLayout: true);
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        // Width measures reliably from the content (PreferredSize.Width) — tight,
+        // no dead margin. Height is pinned to a DPI-scaled design value: both
+        // TableLayoutPanel.PreferredSize.Height and the laid-out child bottoms
+        // under-report the final AutoSize button row (it resolves its height after
+        // measurement), which clipped OK/Apply/Cancel at 150%. The container
+        // arrangement is DPI-correct; only the canvas height needs a fixed design
+        // number (380 logical fits the static content with a small bottom margin).
+        _root.PerformLayout();
+        ClientSize = new System.Drawing.Size(_root.PreferredSize.Width, LogicalToDeviceUnits(380));
     }
 
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // Match the titlebar to the active chrome theme BEFORE the window
-        // becomes visible (handle creation precedes the first WM_NCPAINT).
-        // dark=1 = dark titlebar, dark=0 = light. Try the modern attribute
-        // first (20, Win10 20H1+ and Win11). Only fall back to the legacy
-        // attribute 19 (the undocumented Win10 1809–19H2 path) if attribute
-        // 20 was rejected — defensive against a hypothetical future DWM
-        // build that gives attribute 19 a different meaning. On pre-1809
-        // Win10 both calls fail silently and the form keeps its default
-        // titlebar — no functional impact.
+        // Match the titlebar to the active chrome theme BEFORE the window becomes
+        // visible. Try the modern attribute 20 first (Win10 20H1+/Win11); fall
+        // back to legacy 19 (Win10 1809–19H2) only if 20 is rejected.
         int dark = Theme.IsDark ? 1 : 0;
         int hr = NativeMethods.DwmSetWindowAttribute(
             Handle,
@@ -300,36 +247,117 @@ internal sealed class SettingsForm : Form
         }
     }
 
-    private CheckBox AddCheckBox(string text, bool isChecked, int x, ref int y)
+    // ── Container + control builders (no pixel coordinates) ────────────────
+
+    /// <summary>A vertically-stacked, auto-sizing column of controls.</summary>
+    private static FlowLayoutPanel Column(params Control[] items)
+    {
+        var f = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            BackColor = Theme.BgColor,
+            Margin = new Padding(0),
+        };
+        f.Controls.AddRange(items);
+        return f;
+    }
+
+    /// <summary>A left-to-right, auto-sizing row of controls (label + field).</summary>
+    private static FlowLayoutPanel Row(params Control[] items)
+    {
+        var f = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.LeftToRight,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            BackColor = Theme.BgColor,
+            Margin = new Padding(0),
+        };
+        f.Controls.AddRange(items);
+        return f;
+    }
+
+    /// <summary>Equal-width button grid — each column an even Percent slice so
+    /// the buttons fill and scale together with no per-button width math.
+    /// Anchored Left|Right so the grid spans the full content width set by the
+    /// widest stacked row.</summary>
+    private static TableLayoutPanel ButtonRow(params Button[] btns)
+    {
+        var t = new TableLayoutPanel
+        {
+            ColumnCount = btns.Length,
+            RowCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Theme.BgColor,
+            Margin = new Padding(0, 6, 0, 0),
+            Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
+        };
+        t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        for (int i = 0; i < btns.Length; i++)
+        {
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / btns.Length));
+            t.Controls.Add(btns[i], i, 0);
+        }
+        return t;
+    }
+
+    private Label SectionLabel(string text) => new()
+    {
+        Text = text,
+        AutoSize = true,
+        Font = _boldFont,
+        ForeColor = Theme.AccentBlue,
+        Margin = new Padding(3, 8, 3, 2),
+    };
+
+    private CheckBox MakeCheckBox(string text, bool isChecked)
     {
         var chk = new CheckBox
         {
             Text = text,
             Checked = isChecked,
-            Location = new(x, y),
             AutoSize = true,
-            // Dark mode uses pure white (the Catppuccin Text shade #CDD6F3
-            // renders thin against the dark BG at 9pt through FlatStyle.Flat's
-            // grayscale-AA path — white gives the small-glyph contrast we
-            // need). Light mode just uses the normal Fg colour; dark text on
-            // a light background reads fine without the boost.
+            // Indented under the section header. Dark uses pure white for the
+            // glyph/label (the body Fg renders thin at 9pt through Flat's
+            // grayscale-AA path); Light uses the normal Fg.
             ForeColor = Theme.CheckboxFgColor,
             BackColor = Theme.BgColor,
-            // FlatStyle.Flat switches the CheckBox to a render path that
-            // respects ForeColor for the tick glyph. The default
-            // FlatStyle.Standard uses Application.RenderWithVisualStyles which
-            // paints a light-themed glyph regardless of our ForeColor, and
-            // draws the focus rect via ControlPaint.DrawFocusRectangle which
-            // XORs against SystemColors.ControlText (near-invisible on our
-            // dark BG). Flat draws both in our themed colors.
+            // FlatStyle.Flat respects ForeColor for the tick glyph and draws the
+            // focus state in themed colours (Standard paints a light-themed glyph
+            // and an XOR focus rect near-invisible on a dark BG).
             FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(16, 2, 4, 2),
         };
         chk.FlatAppearance.BorderColor = Theme.DividerColor;
         chk.FlatAppearance.CheckedBackColor = Theme.HighlightBg;
         chk.FlatAppearance.MouseOverBackColor = Theme.HighlightBg;
-        Controls.Add(chk);
-        y += 24;
         return chk;
+    }
+
+    private Button MakeButton(string text, EventHandler onClick)
+    {
+        var b = new Button
+        {
+            Text = text,
+            // AutoSize for height (no clipped 9pt descenders); Anchor Left|Right
+            // fills the grid column width WITHOUT inflating it (a fixed Width here
+            // would force the Percent column wide — 75px / 33% x 3 ~= 675px). The
+            // bottom-row clip is solved in OnLoad by measuring the actual laid-out
+            // bottom rather than the under-reporting TableLayoutPanel.PreferredSize.
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Anchor = AnchorStyles.Left | AnchorStyles.Right,
+            Margin = new Padding(4),
+            Padding = new Padding(2, 6, 2, 6),
+        };
+        ThemeButton(b);
+        b.Click += onClick;
+        return b;
     }
 
     private static void ThemeButton(Button btn)
@@ -338,18 +366,17 @@ internal sealed class SettingsForm : Form
         btn.ForeColor = Theme.FgColor;
         btn.BackColor = Theme.BgColor;
         btn.FlatAppearance.BorderColor = Theme.DividerColor;
-        // Without explicit hover/pressed colors, FlatStyle.Flat falls back to
-        // SystemColors.ButtonHighlight on hover — a light grey that flashes
-        // against our dark palette every time the user mouses over a button.
-        // HighlightBg matches the menu selection color so all hover states
-        // across the app feel coordinated.
+        // Explicit hover/pressed colours so Flat doesn't fall back to a light
+        // SystemColors.ButtonHighlight flash against the dark palette.
         btn.FlatAppearance.MouseOverBackColor = Theme.HighlightBg;
         btn.FlatAppearance.MouseDownBackColor = Theme.EditBgColor;
     }
 
     private void Apply()
     {
-        _app.ApplySettings(
+        // _app is only null under the DEBUG render harness, where the Apply
+        // buttons are never clicked — guard so the form still compiles/renders.
+        _app?.ApplySettings(
             _chkCaps.Checked, _chkNum.Checked, _chkScroll.Checked,
             _chkOSD.Checked, _chkBeep.Checked, _chkStartup.Checked,
             (int)_nudPollInterval.Value,
@@ -368,7 +395,7 @@ internal sealed class SettingsForm : Form
         _helpForm = new HelpForm();
         _helpForm.FormClosed += (_, _) =>
         {
-            _helpForm = null; // Close() on Show()-ed form auto-disposes
+            _helpForm = null; // Close() on a Show()-ed form auto-disposes
         };
         _helpForm.Show();
     }

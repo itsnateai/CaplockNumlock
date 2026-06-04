@@ -5,6 +5,18 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+#if DEBUG
+        // Debug-only DPI render harness — realizes each form at the real screen
+        // DPI and dumps PNGs, then exits. Runs before the single-instance mutex
+        // (it's a one-shot render, not a tray session) so it works alongside a
+        // live instance on a test VM. Stripped from Release.
+        if (args.Contains("--diag-render-form"))
+        {
+            DiagRender.Run(args);
+            return;
+        }
+#endif
+
         bool isAfterUpdate = args.Contains("--after-update");
         // --after-theme-restart: dispatched by TrayApplication when the user
         // changes the Theme dropdown. Same mutex-retry treatment as --after-update

@@ -109,6 +109,13 @@ internal sealed class OsdForm : Form
         }
     }
 
+#if DEBUG
+    /// <summary>Render-harness only: build an OSD instance without showing it on
+    /// a timer, so the layout can be captured at the test DPI. The long hide
+    /// interval never fires during the brief render pass.</summary>
+    internal static OsdForm CreateForDiag(string text) => new(text, 999_999);
+#endif
+
     public static void ShowOsd(string text, int durationMs = 2000)
     {
         if (_current != null && !_current.IsDisposed)
