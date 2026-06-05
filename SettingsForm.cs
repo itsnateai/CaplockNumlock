@@ -211,18 +211,26 @@ internal sealed class SettingsForm : Form
         ResumeLayout(performLayout: true);
     }
 
+    // Logical (96-DPI) design height of the Settings canvas, pinned in OnLoad and
+    // scaled per-DPI. It is NOT a measured value: the trailing AutoSize button rows
+    // (Anchor=Left|Right inside Percent columns) report a height ~45px short of what
+    // they actually render in this realization path, so PreferredSize/child .Bottom
+    // both under-measure and any "size to content" attempt clips OK/Apply/Cancel. A
+    // generously-pinned constant is the reliable approach (the controls inside are
+    // all relational, so only this canvas height is a literal). 392 sits ~16px below
+    // the realized button row at 100% — the breathing room 380 lacked — and scales
+    // to a slightly larger but fine gutter at 125%/150%. Verified on the Tiny11 lab.
+    private const int DesignHeight = 392;
+
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        // Width measures reliably from the content (PreferredSize.Width) — tight,
-        // no dead margin. Height is pinned to a DPI-scaled design value: both
-        // TableLayoutPanel.PreferredSize.Height and the laid-out child bottoms
-        // under-report the final AutoSize button row (it resolves its height after
-        // measurement), which clipped OK/Apply/Cancel at 150%. The container
-        // arrangement is DPI-correct; only the canvas height needs a fixed design
-        // number (380 logical fits the static content with a small bottom margin).
+        // Width measures reliably from the content (PreferredSize.Width) — tight, no
+        // dead margin. Height is the DPI-scaled design constant above; do NOT later
+        // shrink ClientSize toward a measured content height — shrinking re-flows the
+        // anchored button rows and clips them (the bug this method exists to avoid).
         _root.PerformLayout();
-        ClientSize = new System.Drawing.Size(_root.PreferredSize.Width, LogicalToDeviceUnits(380));
+        ClientSize = new System.Drawing.Size(_root.PreferredSize.Width, LogicalToDeviceUnits(DesignHeight));
     }
 
     protected override void OnHandleCreated(EventArgs e)

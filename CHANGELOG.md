@@ -4,6 +4,25 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.10] — 2026-06-04
+
+### Fixed — Settings dialog: too little breathing room under the bottom button row
+
+The **OK / Apply / Cancel** row sat nearly flush against the bottom window edge,
+with only a few pixels of padding below it. The Settings canvas height is pinned to
+a DPI-scaled design constant in `OnLoad` (the controls inside are relational, so the
+canvas height is the only literal) — that constant was just slightly too short. It is
+now `392` logical px (was `380`), giving a balanced gutter under the buttons that
+matches the top margin. Verified by ground-truth renders at a real 100% and a real
+150% scale (362×392 / 544×588).
+
+> **Why pinned, not measured:** the trailing `AutoSize` button rows
+> (`Anchor=Left|Right` in `Percent` columns) report a height ~45 device-px short of
+> what they actually render, so `PreferredSize` / child `.Bottom` under-measure and
+> any "size to content" pass *clips* the buttons; shrinking `ClientSize` toward a
+> measured value re-flows the anchored rows and clips them too. A generously-pinned
+> constant is the reliable approach. (Documented inline so it isn't re-litigated.)
+
 ## [2.4.9] — 2026-06-04
 
 ### Fixed — Update dialog progress-bar fill height at 125%/150% scaling
