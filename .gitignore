@@ -56,6 +56,9 @@ FINAL_REPORT.md
 # Build output
 publish/
 
+# Diagnostics / render-harness scratch (DEBUG --diag-render-form / --diag-measure-settings output — never commit, never publish)
+_diag_shots/
+
 # Workspace scaffolding — never commit (defense-in-depth, prevents leaks of internal handoffs/audit prompts)
 *_HANDOFF.md
 *_PROMPT*.md
