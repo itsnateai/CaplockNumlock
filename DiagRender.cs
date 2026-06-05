@@ -152,6 +152,105 @@ internal static class DiagRender
         File.WriteAllLines(Path.Combine(outDir, "_measure-report.txt"), report);
     }
 
+    /// <summary>
+    /// Live ground-truth measurement for the Update dialog — the UserPaint twin of
+    /// MeasureSettings. DrawToBitmap mis-composites this OptimizedDoubleBuffer/UserPaint
+    /// form (the button row renders at the wrong offset), so the only honest check that
+    /// the content-fit height isn't clipping the button row is an on-screen CopyFromScreen
+    /// capture + a pixel scan for the true content bottom. Populates the "new version"
+    /// state (both buttons visible) — the tallest button-row state — via DiagPopulate.
+    /// </summary>
+    internal static void MeasureUpdate(string[] args)
+    {
+        Active = true;
+        string outDir = GetArg(args, "--out") ?? Path.Combine(Path.GetTempPath(), "capsnumtray-diag");
+        Directory.CreateDirectory(outDir);
+
+        ApplicationConfiguration.Initialize();
+        var config = new ConfigManager(Path.Combine(outDir, "_diag.ini"));
+        Theme.Initialize(Theme.ResolveIsDark(config.ThemeMode));
+
+        var report = new List<string> { "CapsNumTray — Update dialog live measurement" };
+        using var form = new UpdateDialog();
+        form.StartPosition = FormStartPosition.Manual;
+        form.Location = new Point(120, 120);
+        form.TopMost = true;
+        form.Show();
+        form.Activate();
+        // OnLoad fits the initial (Checking...) height; settle it on a real pump.
+        for (int i = 0; i < 20; i++) { Application.DoEvents(); Thread.Sleep(15); }
+        // Swap to the tallest button-row state (Upgrade Now + Cancel) and let the
+        // FitToContentHeight re-fit settle before capturing.
+        form.DiagPopulate();
+        for (int i = 0; i < 30; i++) { Application.DoEvents(); Thread.Sleep(15); }
+
+        int dpi = form.DeviceDpi;
+        var root = (TableLayoutPanel)form.Controls[0];
+        var buttonRow = (FlowLayoutPanel)root.Controls[root.Controls.Count - 1];   // the button host
+        var clientSize = form.ClientSize;
+
+        report.Add($"DeviceDpi = {dpi} ({dpi * 100 / 96}%)");
+        report.Add($"CurrentAutoScaleDimensions       = {form.CurrentAutoScaleDimensions}");
+        report.Add($"ClientSize                       = {clientSize.Width}x{clientSize.Height}");
+        report.Add($"_root.Height (AutoSize)          = {root.Height}");
+        report.Add($"_root.PreferredSize.Height       = {root.PreferredSize.Height}");
+        report.Add($"_root.Padding                    = {root.Padding.Left},{root.Padding.Top},{root.Padding.Right},{root.Padding.Bottom}");
+        report.Add($"buttonRow.Bottom in client coords= {root.Top + buttonRow.Bottom}  (Padding bottom = {root.Padding.Bottom})");
+        // Did the fixed-size elements scale? At 150% expect buttons/progress ~1.5x.
+        foreach (Control b in buttonRow.Controls)
+            report.Add($"  button '{b.Text}' size           = {b.Width}x{b.Height}  (visible={b.Visible})");
+        var po = root.Controls[2];   // _progressOuter (status=0, detail=1, progress=2)
+        report.Add($"progressOuter size               = {po.Width}x{po.Height}");
+
+        using var bmp = new Bitmap(clientSize.Width, clientSize.Height);
+        using (var g = Graphics.FromImage(bmp))
+            g.CopyFromScreen(form.PointToScreen(Point.Empty), Point.Empty, clientSize);
+        string png = Path.Combine(outDir, $"UpdateMeasure-dpi{dpi}.png");
+        bmp.Save(png, ImageFormat.Png);
+
+        var bg = bmp.GetPixel(3, 3);
+        bool IsBg(System.Drawing.Color p) =>
+            Math.Abs(p.R - bg.R) + Math.Abs(p.G - bg.G) + Math.Abs(p.B - bg.B) <= 24;
+        int trueBottom = -1;
+        for (int y = clientSize.Height - 1; y >= 0 && trueBottom < 0; y--)
+            for (int x = 0; x < clientSize.Width; x++)
+                if (!IsBg(bmp.GetPixel(x, y))) { trueBottom = y; break; }
+        int gutterPx = (clientSize.Height - 1) - trueBottom;
+        report.Add("--- real pixel scan (CopyFromScreen) ---");
+        report.Add($"bg sample (3,3)            = R{bg.R} G{bg.G} B{bg.B}");
+        report.Add($"true content bottom row    = {trueBottom}px");
+        report.Add($"bottom gutter              = {gutterPx}px  (>=0 means the button row is NOT clipped)");
+        report.Add($"buttonRow.Bottom <= ClientSize.Height ? {(root.Top + buttonRow.Bottom <= clientSize.Height ? "YES (no clip)" : "NO — CLIPPED")}");
+        report.Add($"-> SAVED {Path.GetFileName(png)}");
+
+        // ── Long-error state: does a long status/detail WRAP (height grows) or
+        // OVERFLOW the fixed-width column (horizontal clip)? This is the state the
+        // populated capture above misses. A completeness audit flagged the AutoSize
+        // labels as potentially non-wrapping; settle it with real measurements.
+        form.DiagShowLongError();
+        for (int i = 0; i < 30; i++) { Application.DoEvents(); Thread.Sleep(15); }
+        var errClient = form.ClientSize;
+        var lblStatus = root.Controls[0];   // status=0, detail=1, progress=2, buttons=3
+        var lblDetail = root.Controls[1];
+        int contentW = errClient.Width - root.Padding.Left - root.Padding.Right;
+        report.Add("--- long-error state (WRAP vs OVERFLOW) ---");
+        report.Add($"ClientSize (error)               = {errClient.Width}x{errClient.Height}");
+        report.Add($"content width (client - padding)  = {contentW}");
+        report.Add($"lblStatus size                   = {lblStatus.Width}x{lblStatus.Height}  right={lblStatus.Right}  overflow={(lblStatus.Width > contentW ? "YES-CLIP" : "no(wrapped/fits)")}");
+        report.Add($"lblDetail size                   = {lblDetail.Width}x{lblDetail.Height}  right={lblDetail.Right}  overflow={(lblDetail.Width > contentW ? "YES-CLIP" : "no(wrapped/fits)")}");
+        report.Add($"any label right edge > client?   = {((lblStatus.Right > errClient.Width || lblDetail.Right > errClient.Width) ? "YES-CLIP" : "no")}");
+
+        using var bmpE = new Bitmap(errClient.Width, errClient.Height);
+        using (var g = Graphics.FromImage(bmpE))
+            g.CopyFromScreen(form.PointToScreen(Point.Empty), Point.Empty, errClient);
+        string pngE = Path.Combine(outDir, $"UpdateMeasureError-dpi{dpi}.png");
+        bmpE.Save(pngE, ImageFormat.Png);
+        report.Add($"-> SAVED {Path.GetFileName(pngE)}");
+
+        form.Close();
+        File.WriteAllLines(Path.Combine(outDir, "_measure-update-report.txt"), report);
+    }
+
     private static Form CreateForm(string name, ConfigManager config) => name.ToLowerInvariant() switch
     {
         "settingsform" => new SettingsForm(config, null),

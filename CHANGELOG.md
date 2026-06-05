@@ -4,6 +4,47 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.12] — 2026-06-05
+
+### Fixed — Update dialog: window much taller (and wider) than its content
+
+The **Check for Updates** window reserved a fixed `420×180` client area regardless of what it
+showed, so the common resting state ("You're on the latest version!" + the version line + an **OK**
+button) floated in the top half with a large empty band underneath. Two coupled layout choices caused
+it: the root panel was `Dock.Fill` inside a hard-pinned height (content stacked at the top, leftover
+height became dead space), and the progress bar sat in an `AutoSize` row that collapsed when hidden —
+so the height had been over-sized to stop the button jumping between states.
+
+The dialog now sizes to its content, matching the same fix already shipped on the sibling apps' update
+dialogs (MicMute / SyncthingPause):
+
+- The root stack is `Dock.Top + AutoSize`; `OnLoad` pins the **width** to the DPI-scaled design width
+  and fits the **height** to the realized content (`FitToContentHeight`), re-fitting on every state
+  change so a long error/winget message that wraps to 2–3 lines still grows to fit (no clipped button).
+- The progress bar moved into a **reserved `Absolute` row**, so the window is the same height whether
+  the bar is shown (checking/downloading) or hidden (resting/error/winget) — the button no longer jumps
+  and no dead band opens when the bar disappears.
+- Design width tightened `420 → 360` to match the sibling family, trimming the excess side margins too.
+
+### Fixed — Update dialog: "Upgrade Now" button clipped to "Upgrade", thin progress bar at 150% DPI
+
+While verifying the above at a real 150% scale (Tiny11 lab), a second defect surfaced: the action
+buttons used hardcoded pixel sizes (`110×30` / `80×30`) and the progress track a hardcoded `312×18`.
+`AutoScaleMode.Dpi` does **not** scale a fixed control `Size` in this dialog (only point-fonts grow with
+DPI), so at 150% the larger font outgrew the fixed-width button and **"Upgrade Now" clipped to
+"Upgrade"**, while the progress bar stayed 96-DPI-narrow.
+
+- Buttons are now **`AutoSize`** (with padding), so they grow to fit the scaled text at any DPI and can
+  never clip — the same pattern as `SettingsForm`'s buttons (the app's DPI convention: layout-driven
+  sizing, not absolute pixels relying on a scale pass).
+- The progress track is now scaled explicitly via `LogicalToDeviceUnits` in `OnLoad` (the reserved row
+  height kept in sync), so it stays proportional — `312×18` at 100%, `468×27` at 150%.
+
+Verified by ground-truth on-screen capture (`CopyFromScreen` + a content-bottom pixel scan, not
+`DrawToBitmap`, which mis-composites this `UserPaint` form) at a real 100% **and** a real 150% scale on
+the Tiny11 lab: client `360×136` / `540×171`, the button row sits inside the client with a 12px gutter
+at both scales, and "Upgrade Now" renders in full.
+
 ## [2.4.11] — 2026-06-04
 
 ### Fixed — Settings dialog: large empty band below the bottom button row (worse at 125%/150%)

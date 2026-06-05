@@ -20,6 +20,11 @@ internal static class Program
             DiagRender.MeasureSettings(args);
             return;
         }
+        if (args.Contains("--diag-measure-update"))
+        {
+            DiagRender.MeasureUpdate(args);
+            return;
+        }
 #endif
 
         bool isAfterUpdate = args.Contains("--after-update");

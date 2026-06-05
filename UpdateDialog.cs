@@ -36,6 +36,16 @@ internal sealed class UpdateDialog : Form
     // Root container, kept so OnLoad can size the dialog to its realized content.
     private readonly TableLayoutPanel _root;
 
+    // 96-DPI design dimensions. Width is fixed (the status text changes at runtime,
+    // so the dialog must not reflow horizontally); the height is fit to the realized
+    // content in OnLoad and re-fit on every state change (FitToContentHeight). The
+    // progress track lives in a reserved Absolute row of height ProgressBarH, so the
+    // window is the same height whether the bar is shown (checking/downloading) or
+    // hidden (the resting latest/error/winget states) — no button jump, no dead band.
+    private const int DesignWidth = 360;
+    private const int ProgressBarW = 312;
+    private const int ProgressBarH = 18;
+
     private const string AppName = "CapsNumTray";
     private const string GitHubRepo = "itsnateai/CaplockNumlock";
 
@@ -65,12 +75,13 @@ internal sealed class UpdateDialog : Form
         // DPI ratios; switching to Dpi aligns this dialog with the rest of the app.
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        // Fixed-width status dialog — the status text changes at runtime, so the
-        // width stays put rather than reflowing. This 96-DPI ClientSize is only
-        // the initial canvas; the real DPI-correct size is pinned in OnLoad
-        // (AutoScaleMode.Dpi does NOT scale a manually-assigned ClientSize — that
-        // was the bug). The layout containers below keep the content centred.
-        ClientSize = new Size(420, 180);
+        // Placeholder client size — OnLoad pins the width to the DPI-scaled
+        // DesignWidth and fits the HEIGHT to the laid-out content, so the window
+        // ends up exactly content-tall with no dead band at any DPI. The old fixed
+        // 420x180 left roughly half the height empty under the two status lines
+        // (the "too big for the content" report). AutoScaleMode.Dpi does NOT scale
+        // a manually-assigned ClientSize, which is why OnLoad re-pins it explicitly.
+        ClientSize = new Size(DesignWidth, 150);
 
         _boldFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         _italicFont = new Font("Segoe UI", 7.5f, FontStyle.Italic);
@@ -84,7 +95,7 @@ internal sealed class UpdateDialog : Form
             Anchor = AnchorStyles.None,
             Font = _boldFont,
             ForeColor = Theme.FgColor,
-            Margin = new Padding(3, 0, 3, 2),
+            Margin = new Padding(0, 0, 0, 6),
         };
         _lblDetail = new Label
         {
@@ -93,34 +104,45 @@ internal sealed class UpdateDialog : Form
             Anchor = AnchorStyles.None,
             ForeColor = Theme.DimColor,
             Font = _italicFont,
-            Margin = new Padding(3, 0, 3, 2),
+            Margin = new Padding(0, 0, 0, 10),
         };
 
         // The progress bar is an intrinsic fixed-size element (not layout math);
-        // Anchor.None centres it and AutoScaleMode.Dpi scales the bar itself.
+        // Anchor.None centres it. AutoScaleMode.Dpi does NOT scale this fixed Size
+        // (verified at real 150%), so OnLoad re-scales it via LogicalToDeviceUnits
+        // and keeps the reserved Absolute row's height in sync. The 96-DPI Size here
+        // is the design baseline.
         _progressOuter = new Panel
         {
-            Size = new Size(350, 18),
+            Size = new Size(ProgressBarW, ProgressBarH),
             BackColor = Theme.EditBgColor,
             BorderStyle = BorderStyle.None,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 6, 0, 6),
+            // Zero margin — the reserved Absolute row (ProgressBarH) is exactly the
+            // bar's height; vertical breathing room comes from the detail label's
+            // bottom margin and the button row's top margin instead.
+            Margin = new Padding(0),
         };
         _progressFill = new Panel
         {
             Location = new Point(0, 0),
-            Size = new Size(0, 18),
+            Size = new Size(0, ProgressBarH),
             BackColor = Theme.AccentGreen,
         };
         _progressOuter.Controls.Add(_progressFill);
 
-        // Fixed (DPI-scaled) button sizes — the proven original dims. Deterministic
-        // sizes keep the container's height measurement honest (AutoSize buttons
-        // under-count the row and clip); AutoScaleMode.Dpi scales these reliably.
+        // AutoSize buttons (not fixed pixel Sizes) so they grow with the DPI-scaled
+        // font. A hardcoded 110px width clipped "Upgrade Now" to "Upgrade" at real
+        // 150%: AutoScaleMode.Dpi does not scale a fixed control Size in this dialog,
+        // yet the point-font still renders larger, so the text outgrew the button.
+        // Matches SettingsForm's AutoSize buttons — the codebase DPI convention
+        // (layout-driven sizing, not absolute pixels relying on a scale pass).
         _btnAction = new Button
         {
             Text = "Upgrade Now",
-            Size = new Size(110, 30),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(16, 6, 16, 6),
             Margin = new Padding(6, 0, 6, 0),
             Visible = false,
             FlatStyle = FlatStyle.Flat,
@@ -135,7 +157,9 @@ internal sealed class UpdateDialog : Form
         _btnCancel = new Button
         {
             Text = "Cancel",
-            Size = new Size(80, 30),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(16, 6, 16, 6),
             Margin = new Padding(6, 0, 6, 0),
             FlatStyle = FlatStyle.Flat,
             ForeColor = Theme.FgColor,
@@ -162,27 +186,31 @@ internal sealed class UpdateDialog : Form
             WrapContents = false,
             Anchor = AnchorStyles.None,
             BackColor = Theme.BgColor,
-            Margin = new Padding(0),
+            Margin = new Padding(0, 6, 0, 0),   // small gap above the button row
         };
         buttonHost.Controls.Add(_btnAction);
         buttonHost.Controls.Add(_btnCancel);
 
-        // Single-column stack: status / detail / progress / buttons. The window
-        // is fixed-width / content-height (set in OnLoad), so no spacer row is
-        // needed — stacking from the top can never push the buttons off the
-        // bottom the way a fixed height + bottom-anchored spacer did.
+        // Single-column stack: status / detail / progress / buttons. Dock=Top +
+        // AutoSize lets OnLoad fit the form's ClientSize.Height to the realized
+        // content (no fixed height = no dead band). The progress row is Absolute so
+        // it reserves its slot even when the bar is hidden — the window height (and
+        // the button position) stays put between the checking/downloading states and
+        // the resting latest/error states, instead of jumping when the bar collapses.
         _root = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
             BackColor = Theme.BgColor,
             Padding = new Padding(18, 16, 18, 12),
         };
         _root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));     // status
-        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));     // detail
-        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));     // progress
-        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));     // buttons
+        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));                // status
+        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));                // detail
+        _root.RowStyles.Add(new RowStyle(SizeType.Absolute, ProgressBarH));  // progress (reserved slot)
+        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));                // buttons
         _root.Controls.Add(_lblStatus, 0, 0);
         _root.Controls.Add(_lblDetail, 0, 1);
         _root.Controls.Add(_progressOuter, 0, 2);
@@ -229,7 +257,18 @@ internal sealed class UpdateDialog : Form
         _progressFill.Size = new Size(_progressOuter.Width * 6 / 10, _progressOuter.Height);
         _btnAction.Visible = true;
         _btnCancel.Text = "Cancel";
+        FitToContentHeight();
     }
+
+    /// <summary>Render-harness only: drive an error state with a synthetic OVER-long
+    /// detail (longer than any real message) AFTER show, to force the fixed-width
+    /// labels to wrap to multiple lines — proving they wrap (height grows) rather than
+    /// overflow horizontally (clip), and that FitToContentHeight grows the window to
+    /// fit. Regression-guards the wrap behaviour a one-line real string wouldn't
+    /// exercise. Mirrors MicMute.UpdateDialog.DiagShowLongError.</summary>
+    internal void DiagShowLongError()
+        => ShowError("No update package found in the latest release.",
+                     "This release is missing its integrity checksum and cannot be verified against the published SHA256SUMS asset, so the update was refused to protect your installation.");
 #endif
 
     private static HttpClient CreateHttpClient()
@@ -266,6 +305,7 @@ internal sealed class UpdateDialog : Form
             _btnAction.Visible = false;
             _btnCancel.Text = "OK";
             // Lone button auto-centres via the flow host — no manual positioning.
+            FitToContentHeight();
             return;
         }
 
@@ -376,6 +416,8 @@ internal sealed class UpdateDialog : Form
             _btnCancel.Text = "OK";
             // Lone button auto-centres via the flow host — no manual positioning.
         }
+
+        FitToContentHeight();
     }
 
     // ─── Download & Apply ───────────────────────────────────────
@@ -387,6 +429,7 @@ internal sealed class UpdateDialog : Form
         _progressOuter.Visible = true;
         _progressFill.Location = new Point(0, 0);
         _lblStatus.Text = $"Downloading {AppName} {_remoteVersion}...";
+        FitToContentHeight();   // one-shot status swap (not the per-frame % callback) — keep the contract
 
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
@@ -424,6 +467,7 @@ internal sealed class UpdateDialog : Form
 
             {
                 _lblStatus.Text = "Verifying integrity...";
+                FitToContentHeight();
                 if (!IsAllowedReleaseOrigin(_hashFileUrl))
                 {
                     TryDelete(newPath);
@@ -478,6 +522,7 @@ internal sealed class UpdateDialog : Form
 
             _lblStatus.Text = "Applying update...";
             _progressOuter.Visible = false;
+            FitToContentHeight();
 
             TryDelete(oldPath);
             if (File.Exists(exePath))
@@ -596,6 +641,7 @@ internal sealed class UpdateDialog : Form
         _btnAction.Visible = false;
         _btnCancel.Text = "OK";
         // Lone button auto-centres via the flow host — no manual positioning.
+        FitToContentHeight();   // long error/detail strings wrap to 2-3 lines — grow to fit, no clip
     }
 
     // ─── Winget Detection ────────────────────────────────────────
@@ -737,11 +783,42 @@ internal sealed class UpdateDialog : Form
     {
         base.OnLoad(e);
         // AutoScaleMode.Dpi scales this dialog's child controls but — verified at
-        // real 150% on Tiny11Lab — does NOT grow its fixed ClientSize ("fonts
-        // grow, bounds don't"). Pin it to the DPI-scaled design size. With fixed
-        // (scaled) controls and no spacer row, the content stacks from the top and
-        // fits comfortably at any scale. LogicalToDeviceUnits is a no-op at 100%.
-        ClientSize = LogicalToDeviceUnits(new Size(420, 180));
+        // real 150% on Tiny11Lab — does NOT grow a manually-assigned ClientSize
+        // ("fonts grow, bounds don't"). Pin the WIDTH to the DPI-scaled design
+        // width, then fit the HEIGHT to the laid-out content. The height is re-fit
+        // on every later state change (FitToContentHeight) because a long error or
+        // winget message wraps to 2-3 lines in the fixed-width form; measuring only
+        // here (in the short "Checking..." state) would clip the button when a
+        // taller state swaps in. Done before the first paint -> no visible resize.
+        ClientSize = new Size(LogicalToDeviceUnits(DesignWidth), ClientSize.Height);
+        // AutoScaleMode.Dpi does not scale these fixed pixel sizes (verified at real
+        // 150% on Tiny11Lab — the track stayed 96-DPI-narrow while the fonts grew),
+        // so scale the progress track + its reserved row explicitly. Setting the size
+        // absolutely (LogicalToDeviceUnits, not a multiply) is idempotent, so it is
+        // correct whether or not a scale pass already touched it. The marquee/fill
+        // code reads _progressOuter.Width/Height dynamically, so this propagates.
+        var bar = LogicalToDeviceUnits(new Size(ProgressBarW, ProgressBarH));
+        _progressOuter.Size = bar;
+        _root.RowStyles[2].Height = bar.Height;   // row index 2 == the progress slot
+        FitToContentHeight();
+    }
+
+    /// <summary>
+    /// Re-fit the window height to the current laid-out content; the width stays
+    /// fixed. Called from OnLoad and at the end of every state change that swaps the
+    /// status/detail text. The reserved Absolute progress row keeps the bar's
+    /// show/hide from changing height, so this only resizes when a long message
+    /// wraps to a different line count. MUST NOT be called from the per-frame
+    /// download-progress callback — the % detail is always one line, and re-fitting
+    /// every frame would thrash the window size.
+    /// </summary>
+    private void FitToContentHeight()
+    {
+        if (!IsHandleCreated) return;
+        _root.PerformLayout();
+        int h = _root.Height;
+        if (ClientSize.Height != h)
+            ClientSize = new Size(ClientSize.Width, h);
     }
 
     protected override void OnHandleCreated(EventArgs e)
