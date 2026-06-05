@@ -391,6 +391,11 @@ internal sealed class UpdateDialog : Form
     private void ShowVersionComparison()
     {
         _marqueeTimer.Stop();
+        // Reset the status colour — ShowError latches it to AccentWarn and never
+        // restores it, so re-entering a normal state (e.g. the cancel-rollback path
+        // calls this after a prior error painted the line) would otherwise render a
+        // non-error message in warn-orange. FgColor is the neutral default.
+        _lblStatus.ForeColor = Theme.FgColor;
         _progressFill.Size = new Size(0, _progressOuter.Height);
         _progressFill.Location = new Point(0, 0);
 
@@ -800,6 +805,19 @@ internal sealed class UpdateDialog : Form
         var bar = LogicalToDeviceUnits(new Size(ProgressBarW, ProgressBarH));
         _progressOuter.Size = bar;
         _root.RowStyles[2].Height = bar.Height;   // row index 2 == the progress slot
+
+        // Make label wrapping EXPLICIT. The labels already wrap inside the Percent(100)
+        // column (verified: a 170-char detail wraps to 3 lines at real 100% and 150%),
+        // but that relies on the TableLayoutPanel imposing the column width on an
+        // AutoSize label. Pinning MaximumSize.Width to the content width makes it
+        // unconditional and bounds a pathological unbreakable token (e.g. a malformed
+        // 60-char GitHub tag with no spaces) to the content box instead of letting it
+        // overflow the fixed-width window. Height 0 = unlimited (grow as tall as the
+        // wrapped text needs); FitToContentHeight then grows the window to fit.
+        int contentW = ClientSize.Width - _root.Padding.Left - _root.Padding.Right;
+        _lblStatus.MaximumSize = new Size(contentW, 0);
+        _lblDetail.MaximumSize = new Size(contentW, 0);
+
         FitToContentHeight();
     }
 

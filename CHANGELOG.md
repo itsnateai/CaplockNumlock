@@ -4,6 +4,24 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.13] — 2026-06-05
+
+### Hardened — Update dialog: warn-colour latch + explicit label wrapping
+
+Follow-up hardening from a multi-agent review of the v2.4.12 content-fit work. Two latent
+edge cases, neither user-visible in normal use, closed defensively:
+
+- **Status colour no longer latches to warn-orange.** `ShowError` sets the status label to the
+  warn colour but nothing restored it; if a normal state were ever shown after an error in the
+  same dialog session, the message would render orange. `ShowVersionComparison` now resets the
+  colour to the neutral default first.
+- **Label wrapping is now explicit.** The status/detail labels already wrap long messages inside
+  their layout column (verified: a 170-char string wraps to 3 lines at real 100% and 150%), but
+  that relied on the table column implicitly constraining an `AutoSize` label. `OnLoad` now pins
+  each label's `MaximumSize.Width` to the content width, so wrapping is unconditional and a
+  pathological unbreakable token (e.g. a malformed long version tag with no spaces) is bounded to
+  the content box instead of overflowing the fixed-width window.
+
 ## [2.4.12] — 2026-06-05
 
 ### Fixed — Update dialog: window much taller (and wider) than its content
