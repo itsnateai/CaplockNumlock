@@ -15,6 +15,11 @@ internal static class Program
             DiagRender.Run(args);
             return;
         }
+        if (args.Contains("--diag-measure-settings"))
+        {
+            DiagRender.MeasureSettings(args);
+            return;
+        }
 #endif
 
         bool isAfterUpdate = args.Contains("--after-update");

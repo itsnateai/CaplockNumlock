@@ -211,26 +211,24 @@ internal sealed class SettingsForm : Form
         ResumeLayout(performLayout: true);
     }
 
-    // Logical (96-DPI) design height of the Settings canvas, pinned in OnLoad and
-    // scaled per-DPI. It is NOT a measured value: the trailing AutoSize button rows
-    // (Anchor=Left|Right inside Percent columns) report a height ~45px short of what
-    // they actually render in this realization path, so PreferredSize/child .Bottom
-    // both under-measure and any "size to content" attempt clips OK/Apply/Cancel. A
-    // generously-pinned constant is the reliable approach (the controls inside are
-    // all relational, so only this canvas height is a literal). 392 sits ~16px below
-    // the realized button row at 100% — the breathing room 380 lacked — and scales
-    // to a slightly larger but fine gutter at 125%/150%. Verified on the Tiny11 lab.
-    private const int DesignHeight = 392;
-
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        // Width measures reliably from the content (PreferredSize.Width) — tight, no
-        // dead margin. Height is the DPI-scaled design constant above; do NOT later
-        // shrink ClientSize toward a measured content height — shrinking re-flows the
-        // anchored button rows and clips them (the bug this method exists to avoid).
+        // Size the client area to the realized (post-DPI-scale) content. _root is an
+        // AutoSize TableLayoutPanel at (0,0) with a symmetric Padding(12), so its
+        // PreferredSize is the exact content box; using it yields an even 12px margin
+        // on all four sides with no magic height constant, correct by construction at
+        // any DPI (the margin scales with the content).
+        //
+        // Live measurement (CopyFromScreen, host 100%): _root.PreferredSize.Height ==
+        // _root.Height == the true rendered content — a centre-column pixel probe shows
+        // the OK/Apply/Cancel row ending well inside it, then pure background. The prior
+        // "AutoSize button rows under-report, so pin a constant" rationale was a
+        // misdiagnosis: PreferredSize is accurate here. The real historical under-
+        // provisioning came from measuring in the CTOR at 96 DPI (see class remarks),
+        // which a generously-pinned constant masked at 100% but over-padded at 150%.
         _root.PerformLayout();
-        ClientSize = new System.Drawing.Size(_root.PreferredSize.Width, LogicalToDeviceUnits(DesignHeight));
+        ClientSize = _root.PreferredSize;
     }
 
     protected override void OnHandleCreated(EventArgs e)

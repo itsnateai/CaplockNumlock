@@ -4,6 +4,25 @@
 
 All notable changes to CapsNumTray are documented here.
 
+## [2.4.11] — 2026-06-04
+
+### Fixed — Settings dialog: large empty band below the bottom button row (worse at 125%/150%)
+
+The Settings window pinned its height to a hard-coded design constant instead of measuring its
+content, leaving a wide strip of dead space below the **OK / Apply / Cancel** row — roughly 50px at
+100%, and proportionally worse at higher DPI (the constant scaled up while the content didn't grow to
+fill it). `OnLoad` now sizes the client area to the realized content (`ClientSize = _root.PreferredSize`);
+the layout's symmetric `Padding(12)` becomes an even, DPI-proportional margin on all four sides —
+12px at 100%, 18px at 150% — with no magic height number.
+
+Verified by live on-screen measurement (a `CopyFromScreen` capture + a center-column pixel probe — not
+`DrawToBitmap`, which mis-renders this custom-painted `UserPaint` form and hid the gutter) at a real
+100% **and** a real 150% scale: the client height equals the measured content (346 / 520) and the button
+row sits inside it (334 / 502) with a symmetric gutter at both scales — no clipping.
+
+> The 2.4.10 change mistook this for *too little* padding and bumped the constant the wrong way; the
+> pinned-constant approach was itself the bug, and is now removed.
+
 ## [2.4.10] — 2026-06-04
 
 ### Fixed — Settings dialog: too little breathing room under the bottom button row
