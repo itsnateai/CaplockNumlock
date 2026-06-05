@@ -100,7 +100,7 @@ internal static class DiagRender
         var clientSize = form.ClientSize;
 
         report.Add($"DeviceDpi = {dpi} ({dpi * 100 / 96}%)");
-        report.Add($"ClientSize.Height (pinned constant) = {clientSize.Height}");
+        report.Add($"ClientSize.Height (set in OnLoad) = {clientSize.Height}");
         report.Add($"_root.Height (AutoSize)             = {root.Height}");
         report.Add($"_root.PreferredSize.Height          = {root.PreferredSize.Height}");
         report.Add($"_root.Top                           = {root.Top}  (Padding bottom = {root.Padding.Bottom})");

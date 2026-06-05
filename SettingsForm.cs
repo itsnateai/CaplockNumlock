@@ -353,8 +353,9 @@ internal sealed class SettingsForm : Form
             // AutoSize for height (no clipped 9pt descenders); Anchor Left|Right
             // fills the grid column width WITHOUT inflating it (a fixed Width here
             // would force the Percent column wide — 75px / 33% x 3 ~= 675px). The
-            // bottom-row clip is solved in OnLoad by measuring the actual laid-out
-            // bottom rather than the under-reporting TableLayoutPanel.PreferredSize.
+            // window sizes to content via `ClientSize = _root.PreferredSize` in OnLoad —
+            // PreferredSize is accurate for this relational layout (the earlier belief
+            // that the AutoSize button row "under-reports" was a misdiagnosis).
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Anchor = AnchorStyles.Left | AnchorStyles.Right,
