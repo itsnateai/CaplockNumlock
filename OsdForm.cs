@@ -30,8 +30,8 @@ internal sealed class OsdForm : Form
         // future literal Size/Point in this form is interpreted as 96-DPI
         // design pixels regardless of which monitor first realizes it. The
         // size below is already DPI-correct via TextRenderer.MeasureText
-        // (handle-independent, measures at current DC), but the pin is
-        // canonical per _.claude/_templates/snippets/csharp/winforms-dpi-scaling.md
+        // (handle-independent, measures at current DC), but the pin keeps
+        // the design baseline explicit and monitor-order independent.
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
 
